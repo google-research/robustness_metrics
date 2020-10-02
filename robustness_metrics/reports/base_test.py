@@ -1,0 +1,87 @@
+# coding=utf-8
+# Copyright 2020 The Robustness Metrics Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Lint as: python3
+"""Tests for robustness_metrics.reports."""
+from absl.testing import absltest
+import robustness_metrics as rm
+
+
+class UnionReportTest(absltest.TestCase):
+
+  def test_with_empty_required_measurements(self):
+
+    class EmptyReport(rm.reports.base.UnionReport):
+      required_measurements = []
+
+    report = EmptyReport()
+    self.assertEqual(report.result(), {})
+
+  def test_with_correct_arguments(self):
+
+    class TestReport(rm.reports.base.UnionReport):
+      required_measurements = [
+          rm.reports.base.MeasurementSpec("dataset-1", "metric-1"),
+          rm.reports.base.MeasurementSpec("dataset-1", "metric-2"),
+          rm.reports.base.MeasurementSpec("dataset-2", "metric-1")
+      ]
+
+    report = TestReport()
+    report.add_measurement("dataset-1", "metric-1", {"a": 1, "b": 2})
+    report.add_measurement("dataset-2", "metric-1", {"a": 3, "b": 4})
+    report.add_measurement("dataset-1", "metric-2", {"c": 5, "d": 6})
+    self.assertEqual(
+        report.result(), {
+            "dataset-1/metric-1/a": 1,
+            "dataset-1/metric-1/b": 2,
+            "dataset-2/metric-1/a": 3,
+            "dataset-2/metric-1/b": 4,
+            "dataset-1/metric-2/c": 5,
+            "dataset-1/metric-2/d": 6,
+        })
+
+  def test_that_exception_is_raised_on_too_few_observations(self):
+
+    class TestReport(rm.reports.base.UnionReport):
+      required_measurements = [
+          rm.reports.base.MeasurementSpec("dataset-1", "metric-1"),
+          rm.reports.base.MeasurementSpec("dataset-1", "metric-2"),
+          rm.reports.base.MeasurementSpec("dataset-2", "metric-1")
+      ]
+
+    report = TestReport()
+    report.add_measurement("dataset-1", "metric-1", {"a": 1, "b": 2})
+    report.add_measurement("dataset-1", "metric-2", {"c": 5, "d": 6})
+    with self.assertRaises(ValueError):
+      report.result()
+
+  def test_that_exception_is_raised_on_unknown_observations(self):
+
+    class TestReport(rm.reports.base.UnionReport):
+      required_measurements = [
+          rm.reports.base.MeasurementSpec("dataset-1", "metric-1"),
+          rm.reports.base.MeasurementSpec("dataset-1", "metric-2"),
+          rm.reports.base.MeasurementSpec("dataset-2", "metric-1")
+      ]
+
+    report = TestReport()
+    report.add_measurement("dataset-1", "metric-1", {"a": 1, "b": 2})
+    report.add_measurement("dataset-1", "metric-2", {"c": 5, "d": 6})
+    with self.assertRaises(ValueError):
+      report.add_measurement("dataset-1", "metric-3", {"c": 5, "d": 6})
+
+
+if __name__ == "__main__":
+  absltest.main()
