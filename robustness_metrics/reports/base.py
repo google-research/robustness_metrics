@@ -150,10 +150,5 @@ class ClassficationReport(UnionReport):
   def required_measurements(self):
     metrics = ["accuracy", "ece", "nll", "brier"]
     for dataset in self._datasets:
-      # Each instance of ObjectNet has several labels, each corresponding to
-      # some ImageNet class. For example if it's a dog, it can be any kind of
-      # dog. Hence, if any kind of dog is predicted within the first `top_k`
-      # predictions, is considered a good classification. At this point, we only
-      # support this variant of top_k accuracy.
       for metric in metrics:
         yield MeasurementSpec(dataset, metric)

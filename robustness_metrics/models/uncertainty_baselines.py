@@ -14,10 +14,19 @@
 # limitations under the License.
 
 # Lint as: python3
-"""Models module for Uncertainty Baselines."""
+"""Models module for Uncertainty Baselines.
 
+## References:
+
+[1]: Luigi Carratino et al. On Mixup Regularization.
+     _arXiv preprint arXiv:2006.06049_, 2020.
+     https://arxiv.org/abs/2006.06049
+"""
+
+import os
 import warnings
 from edward2.experimental import sngp
+import numpy as np
 import tensorflow as tf
 from uncertainty_baselines.baselines.imagenet import utils
 
@@ -35,7 +44,7 @@ def create(model_dir: str,
       preprocessing it needs to make predictions. Supports cifar, imagenet. If
       not supported, the model uses Robustness Metrics' default preprocessing.
     method: Baseline method. Supports deterministic, batchensemble, dropout,
-      multihead, sngp. If not supported, the model defaults to deterministic's
+      mimo, sngp. If not supported, the model defaults to deterministic's
       eval.
     use_bfloat16: Whether the model was trained with bfloat16.
     **kwargs: Additional method-specific keyword arguments.
@@ -45,11 +54,20 @@ def create(model_dir: str,
   """
   if method == "dropout":
     num_dropout_samples = kwargs.pop("num_dropout_samples")
-  elif method in ("batchensemble", "multihead"):
+  elif method in ("batchensemble", "mimo"):
     ensemble_size = kwargs.pop("ensemble_size")
   elif method == "sngp":
     per_core_batch_size = kwargs.pop("per_core_batch_size")
     gp_mean_field_factor = kwargs.pop("gp_mean_field_factor")
+  elif method == "deterministic":
+    use_mixup_rescaling = kwargs.pop("use_mixup_rescaling", False)
+    if use_mixup_rescaling:
+    # Load statistics to rescale mixup model like in [1]
+      parent_dir = os.path.dirname(model_dir)
+      path = os.path.join(parent_dir, "mixup_rescaling_stats.npz")
+      assert tf.io.gfile.exists(path), "mixup rescaling requires saved stats."
+      with tf.io.gfile.GFile(path, "rb") as f:
+        mixup_rescaling = dict(np.load(f, allow_pickle=True))
 
   model = tf.keras.models.load_model(model_dir)
 
@@ -69,7 +87,7 @@ def create(model_dir: str,
       probs = tf.nn.softmax(logits)
       probs = tf.reduce_mean(probs, axis=0)
     elif method == "sngp":
-      logits = model(images)
+      logits = model(images, training=False)
       if isinstance(logits, tuple):
         logits, covmat = logits
       else:
@@ -83,18 +101,28 @@ def create(model_dir: str,
     else:
       if method == "batchensemble":
         images = tf.tile(images, [ensemble_size, 1, 1, 1])
-      elif method == "multihead":
+      elif method == "mimo":
         images = tf.tile(tf.expand_dims(images, 1), [1, ensemble_size, 1, 1, 1])
+      elif method == "deterministic" and use_mixup_rescaling:
+        mean_theta = mixup_rescaling["mean_theta"]
+        mean_labels = mixup_rescaling["mean_labels"]
+        mean_images = mixup_rescaling["mean_images"]
+        images *= mean_theta
+        images += (1.-mean_theta) * tf.cast(mean_images, images.dtype)
 
-      logits = model(images)
+      logits = model(images, training=False)
       if use_bfloat16:
         logits = tf.cast(logits, tf.float32)
+
+      if method == "deterministic" and use_mixup_rescaling:
+        logits *= 1./mean_theta
+        logits += (1.-1./mean_theta) * tf.cast(mean_labels, logits.dtype)
 
       probs = tf.nn.softmax(logits, axis=-1)
       if method == "batchensemble":
         probs = tf.split(probs, num_or_size_splits=ensemble_size, axis=0)
         probs = tf.reduce_mean(probs, axis=0)
-      elif method == "multihead":
+      elif method == "mimo":
         probs = tf.reduce_mean(probs, axis=1)
     return probs
 

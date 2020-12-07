@@ -46,6 +46,10 @@ file using the `--output_json` flag. The json file will hold an array of two
 dictionaries (JSON objects):
   * The first one holding a map metric_name -> dataset_name -> result.
   * The second one holding a map report-> report_value_name -> value.
+
+# Note for non-TF models
+Please use the flag `--tf_on_cpu`, so that TensorFlow will not allocate any of
+the GPU memory.
 """
 import json
 
@@ -76,6 +80,8 @@ flags.DEFINE_string(
     "be literal_eval'ed, should take the form a='1',b='2',c=3.")
 flags.DEFINE_string("output_json_path", None,
                     "Where to store the json-serialized output")
+flags.DEFINE_bool("tf_on_cpu", False,
+                  "If set, will hide accelerators from TF.")
 
 flags.mark_flags_as_required(["model_path"])
 
@@ -100,6 +106,10 @@ def _register_custom_report():
 def main(argv):
   if len(argv) > 1:
     raise app.UsageError("Too many command-line arguments.")
+
+  if FLAGS.tf_on_cpu:
+    # Hide the GPU from TF.
+    tf.config.experimental.set_visible_devices([], "GPU")
 
   strategy = bin_common.default_distribution_strategy()
 

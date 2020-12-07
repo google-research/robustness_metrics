@@ -52,8 +52,9 @@ network_width)` to import networks of varying widths and sizes.
 
 __Non-TensorFlow models.__ If your model is not written in TensorFlow, you can
 convert the data to numpy and feed those to your model. For example, take a look
-at `models/random_imagenet_numpy.py`. Note that we do not provide TPU
-support in this case.
+at `models/random_imagenet_numpy.py`, `models/vit.py` for a JAX model, and
+`models/vgg.py` for a PyTorch model. Please do not forget to set the flag
+`--tf_on_cpu` in `compute_report.py`.
 
 ### 2. Launch an experiment
 
@@ -104,6 +105,9 @@ python3 bin/compute_report.py \
    --measurement="nll@imagenet_v2(variant='MATCHED_FREQUENCY')" \
    --measurement="ece@imagenet_a"
 ```
+
+If you are running non-TensorFlow models (for example `models/vit.py` is a JAX
+model, and `models/vgg.py` is in PyTorch), please set the flag `--tf_on_cpu`.
 
 ### 3. Examine results
 

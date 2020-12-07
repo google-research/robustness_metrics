@@ -778,9 +778,14 @@ def compose(*functions):
   Returns:
     Composition of said callables.
   """
-  def _composed_fn(x):
+  def _composed_fn(*x):
     for fn in functions:
       if fn:
-        x = fn(x)
+        # Note that we cannot use `collections.abc.Iterable` because this will
+        # include a `dict` which will be incorrectly passed if not wrapped in a
+        # tuple.
+        if not isinstance(x, (list, tuple)):
+          x = (x,)
+        x = fn(*x)
     return x
   return _composed_fn

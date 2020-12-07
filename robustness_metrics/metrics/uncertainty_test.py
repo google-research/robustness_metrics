@@ -18,7 +18,6 @@
 
 import math
 from absl.testing import parameterized
-import numpy as np
 import robustness_metrics as rm
 import tensorflow as tf
 
@@ -108,21 +107,6 @@ class KerasMetricTest(parameterized.TestCase, tf.test.TestCase):
     }[name]
     key_name = name.split("(")[0]
     self.assertDictsAlmostEqual(metric.result(), {key_name: expected_value})
-
-  def test_scale_predictions(self):
-    predictions = [[0.10, 0.17, 0.18, 0.11, 0.44],
-                   [0.10, 0.10, 0.20, 0.20, 0.40],
-                   [0.18, 0.26, 0.14, 0.03, 0.39],
-                   [0.52, 0.04, 0.10, 0.32, 0.02]]
-    labels = np.argmax(predictions, axis=-1)
-    labels[0:2] = 0  # Add some noise.
-    true_beta = 0.581074  # Computed manually
-    scaled_preds = rm.metrics.uncertainty._scale_predictions(
-        predictions, labels)
-    np.testing.assert_almost_equal(
-        scaled_preds,
-        tf.nn.softmax(true_beta * np.log(predictions)).numpy(),
-        decimal=5)
 
 
 if __name__ == "__main__":
