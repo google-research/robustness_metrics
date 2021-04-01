@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Robustness Metrics Authors.
+# Copyright 2021 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 import abc
 import collections
-from typing import Dict, Text
+from typing import Any, Dict, Optional, Text
 
 import numpy as np
 from robustness_metrics.common import registry
@@ -45,13 +45,33 @@ class Metric(metaclass=abc.ABCMeta):
     """
 
   @abc.abstractmethod
-  def add_predictions(self, model_predictions: types.ModelPredictions) -> None:
+  def add_predictions(self,
+                      model_predictions: types.ModelPredictions,
+                      metadata: types.Features) -> None:
     """Adds a new prediction that will be used when computing the metric.
+
+    Multiple predictions for a single example can be added, but for adding
+    predictions for multiple examples use `add_batch()`.
 
     Args:
       model_predictions: The predictions that the model made on an element
         from the dataset.
+      metadata: The metadata for the example.
     """
+
+  def add_batch(self,
+                model_predictions,
+                **metadata: Optional[Dict[Text, Any]]) -> None:
+    """Adds a batch of predictions for a batch of examples.
+
+    Args:
+      model_predictions: The batch of predictions, one for each example in the
+        batch.
+      **metadata: The batch metadata, possible including `labels` which is the
+        batch of labels, one for each example in the batch.
+    """
+    raise NotImplementedError(
+        "Batched predictions not implemented for this metric.")
 
   @abc.abstractmethod
   def result(self) -> Dict[Text, float]:
@@ -64,6 +84,52 @@ class Metric(metaclass=abc.ABCMeta):
 
 registry = registry.Registry(Metric)
 get = registry.get
+
+
+def _map_labelset(predictions, label, appearing_classes):
+  assert len(predictions.shape) == 2
+  if appearing_classes:
+    predictions = predictions[:, appearing_classes]
+    predictions /= np.sum(predictions, axis=-1, keepdims=True)
+    label = appearing_classes.index(label)
+  return predictions, label
+
+
+class FullBatchMetric(Metric):
+  """Base class for metrics that operate on the full dataset (not streaming)."""
+
+  def __init__(self, dataset_info=None, use_dataset_labelset=False):
+    self._ids_seen = set()
+    self._predictions = []
+    self._labels = []
+    self._use_dataset_labelset = use_dataset_labelset
+    self._appearing_classes = (dataset_info.appearing_classes if dataset_info
+                               else None)
+    super().__init__(dataset_info)
+
+  def add_predictions(self, model_predictions, metadata) -> None:
+    try:
+      element_id = int(metadata["element_id"])
+      if element_id in self._ids_seen:
+        raise ValueError(f"You added element id {element_id!r} twice.")
+      else:
+        self._ids_seen.add(element_id)
+    except KeyError:
+      pass
+
+    # If multiple predictions are present for a datapoint, average them:
+    predictions_stacked = np.stack(model_predictions.predictions)
+    try:
+      label = metadata["label"]
+    except KeyError:
+      raise ValueError("No labels in the metadata, provided fields: "
+                       f"{metadata.keys()!r}")
+    if self._use_dataset_labelset:
+      predictions_stacked, label = _map_labelset(
+          predictions_stacked, label, self._appearing_classes)
+    predictions = np.mean(predictions_stacked, axis=0)
+    self._predictions.append(predictions)
+    self._labels.append(label)
 
 
 class KerasMetric(Metric):
@@ -79,7 +145,8 @@ class KerasMetric(Metric):
                key_name: str,
                take_argmax: bool = False,
                one_hot: bool = False,
-               average_predictions: bool = True):
+               average_predictions: bool = True,
+               use_dataset_labelset: bool = False):
     """Initializes the object.
 
     Args:
@@ -92,6 +159,9 @@ class KerasMetric(Metric):
       one_hot: If set, the label will be one-hot encoded.
       average_predictions: If set, when multiple predictions are present for
         a dataset element, they will be averaged before processing.
+      use_dataset_labelset: If set, and the given dataset has only a subset of
+        the clases the model produces, the classes that are not in the dataset
+        will be removed and the others scaled to sum up to one.
     """
     super().__init__(dataset_info)
     self._metric = keras_metric
@@ -99,14 +169,23 @@ class KerasMetric(Metric):
     self._take_argmax = take_argmax
     self._one_hot = one_hot
     self._average_predictions = average_predictions
-    self._num_classes = dataset_info.num_classes if dataset_info else None
+    if dataset_info:
+      self._appearing_classes = dataset_info.appearing_classes
+      if self._appearing_classes and use_dataset_labelset:
+        self._num_classes = len(self._appearing_classes)
+      else:
+        self._num_classes = dataset_info.num_classes
+    else:
+      self._num_classes = None
+      self._appearing_classes = None
     self._ids_seen = set()
+    self._use_dataset_labelset = use_dataset_labelset
 
-  def _add_prediction(self, label, predictions):
+  @tf.function
+  def _add_prediction(self, predictions, label, average_predictions):
     """Feeds the given label and prediction to the underlying Keras metric."""
-    if self._average_predictions:
+    if average_predictions:
       predictions = tf.reduce_mean(predictions, axis=0, keepdims=True)
-
     if self._one_hot:
       label = tf.one_hot(label, self._num_classes)
     if self._take_argmax:
@@ -114,22 +193,47 @@ class KerasMetric(Metric):
     else:
       self._metric.update_state(label, predictions)
 
-  def add_predictions(self, model_predictions: types.ModelPredictions) -> None:
-    if model_predictions.element_id is not None:
-      element_id = int(model_predictions.element_id)
+  def add_predictions(
+      self, model_predictions: types.ModelPredictions, metadata) -> None:
+    try:
+      element_id = int(metadata["element_id"])
       if element_id in self._ids_seen:
         raise ValueError(
             "KerasMetric does not support reporting the same id multiple "
-            f"times, but you added element id {element_id!r} twice.")
+            f"times, but you added element id {element_id} twice.")
       else:
         self._ids_seen.add(element_id)
+    except KeyError:
+      pass
+
     stacked_predictions = np.stack(model_predictions.predictions)
-    if "label" not in model_predictions.metadata:
+    if "label" not in metadata:
       raise ValueError(
-          "KerasMetric expects a `label` in the `metadata` field."
-          f"Available fields are: {model_predictions.metadata.keys()!r}")
-    self._add_prediction(model_predictions.metadata["label"],
-                         stacked_predictions)
+          "KerasMetric expects a `label` in the metadata."
+          f"Available fields are: {metadata.keys()!r}")
+
+    if self._use_dataset_labelset:
+      predictions, label = _map_labelset(
+          stacked_predictions, metadata["label"], self._appearing_classes)
+      self._add_prediction(predictions, label, self._average_predictions)
+    else:
+      self._add_prediction(
+          stacked_predictions, metadata["label"], self._average_predictions)
+
+  def add_batch(self,
+                model_predictions,
+                **metadata: Optional[Dict[Text, Any]]) -> None:
+    # Note that even though the labels are really over a batch of predictions,
+    # we use the kwarg "label" to be consistent with the other functions that
+    # use the singular name.
+    self._average_predictions = False
+    self._add_prediction(
+        predictions=model_predictions,
+        label=metadata["label"],
+        average_predictions=False)
+
+  def reset_states(self):
+    return self._metric.reset_states()
 
   def result(self) -> Dict[Text, float]:
     return {self._key_name: float(self._metric.result())}
@@ -144,10 +248,11 @@ class Accuracy(KerasMetric):
   the metadata field `"label"`.
   """
 
-  def __init__(self, dataset_info=None):
+  def __init__(self, dataset_info=None, use_dataset_labelset=False):
     metric = tf.keras.metrics.Accuracy()
     super().__init__(dataset_info, metric, "accuracy",
-                     take_argmax=True, one_hot=False)
+                     take_argmax=True, one_hot=False,
+                     use_dataset_labelset=use_dataset_labelset)
 
 
 class AggregatedAccuracy(Metric):
@@ -192,34 +297,36 @@ class AggregatedAccuracy(Metric):
     """Returns a dictionary mapping each group to tuples of (element, score)."""
     return self._groups
 
-  def add_predictions(self, model_predictions: types.ModelPredictions) -> None:
+  def add_predictions(self,
+                      model_predictions: types.ModelPredictions,
+                      metadata: types.Features) -> None:
     # We distinguish two cases, `multi-hot-labeled` and single label cases.
     # If both `multi_hot_label` and `label` are are available, `label` is used.
-    if ("label" in model_predictions.metadata and
-        "labels_multi_hot" in model_predictions.metadata):
+    if "label" in metadata and "labels_multi_hot" in metadata:
       raise ValueError("The dataset element can't have `label` and "
                        "`labels_multi_hot` simultaneously.")
-    is_multi_label = "label" not in model_predictions.metadata
-    if is_multi_label and "labels_multi_hot" not in model_predictions.metadata:
+    is_multi_label = "label" not in metadata
+    if is_multi_label and "labels_multi_hot" not in metadata:
       raise ValueError("Required field is missing: `labels_multi_hot`.")
     # We assume that the group is a substring until the first `/` and
     # everything that follows is the identifying the element.
-    field_str = model_predictions.metadata[self._group_element_id_field]
+    field_str = metadata[self._group_element_id_field]
     if isinstance(field_str, bytes):
       field_str = field_str.decode("utf-8")
     group_id, element_id = field_str.split("/")
 
     for prediction in model_predictions.predictions:
+      prediction = np.array(prediction)
       if self._classes_to_ignore:
         for x in self._classes_to_ignore:
           prediction[x] = -np.infty
 
       if is_multi_label:
-        correct = np.where(model_predictions.metadata["labels_multi_hot"])[0]
+        correct = np.where(metadata["labels_multi_hot"])[0]
         predicted = np.argmax(prediction)
         self._groups[group_id].append((element_id, int(predicted in correct)))
       else:
-        correct = model_predictions.metadata["label"]
+        correct = metadata["label"]
         predicted = np.argmax(prediction)
         self._groups[group_id].append((element_id, int(predicted == correct)))
 
@@ -257,16 +364,19 @@ class Precision(KerasMetric):
     class_id = tf.cast([class_id], tf.int64)
     return tf.one_hot(class_id, self._num_classes)
 
-  def add_predictions(self, model_predictions: types.ModelPredictions) -> None:
+  def add_predictions(self,
+                      model_predictions: types.ModelPredictions,
+                      metadata: types.Features) -> None:
     # Wrapping label into size-1 batch.
-    if "label" in model_predictions.metadata:
-      label = self.parse_label(model_predictions.metadata["label"])
-    else:
-      label = [model_predictions.metadata["labels_multi_hot"]]
-    super().add_predictions(types.ModelPredictions(
-        model_predictions.element_id,
-        {"label": label},
-        model_predictions.predictions))
+    try:
+      label = self.parse_label(metadata["label"])
+    except KeyError:
+      label = [metadata["labels_multi_hot"]]
+    model_output = types.ModelPredictions(
+        predictions=model_predictions.predictions)
+    metadata = dict(metadata)
+    metadata["label"] = label
+    super().add_predictions(model_output, metadata=metadata)
 
 
 @registry.register("accuracy_top_k")
@@ -301,11 +411,17 @@ class TopKAccuracy(Metric):
     top_k_correct = tf.reduce_any(top_k_labels > 0, axis=-1)
     self._mean.update_state(tf.reduce_mean(tf.cast(top_k_correct, tf.float32)))
 
-  def add_predictions(self, model_predictions):
+  def add_predictions(self, model_predictions, metadata):
     stacked_predictions = np.stack(model_predictions.predictions)
     self._add_prediction(
-        model_predictions.metadata["labels_multi_hot"],
+        metadata["labels_multi_hot"],
         tf.reduce_mean(stacked_predictions, axis=0))
+
+  def add_batch(self,
+                model_predictions,
+                **metadata: Optional[Dict[Text, Any]]) -> None:
+    return self._add_prediction(
+        labels=metadata["label"], predictions=model_predictions)
 
   def result(self):
     return {f"accuracy@{self._top_k}": float(self._mean.result().numpy())}

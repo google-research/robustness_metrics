@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Robustness Metrics Authors.
+# Copyright 2021 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,8 +35,9 @@ class KerasMetricTest(parameterized.TestCase, tf.test.TestCase):
         0.14699851, 0.85301045, 0.04667912, 0.84366503, 0.27481068, 0.55640206
     ]
     for timing in timings:
-      metric.add_predictions(rm.common.types.ModelPredictions(
-          time_in_s=timing, element_id=None, predictions=[], metadata=None))
+      model_output = rm.common.types.ModelPredictions(
+          time_in_s=timing, predictions=[])
+      metric.add_predictions(model_output, metadata={})
 
     for key, value in metric.result().items():
       if key == "mean":

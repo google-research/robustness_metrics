@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Robustness Metrics Authors.
+# Copyright 2021 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,8 +43,8 @@ def _pad_for_pmap(array):
   # Expands the batch_dim to [jax.device_count(), batch // jax.device_count]
   # padding as necessary.
   n = array.shape[0]
-  new_dims = [jax.device_count(), -1] + list(array.shape[1:])
-  padding_0 = (-n) % jax.device_count()
+  new_dims = [jax.local_device_count(), -1] + list(array.shape[1:])
+  padding_0 = (-n) % jax.local_device_count()
   padding = [(0, padding_0)] + [(0, 0) for _ in array.shape[1:]]
   return onp.pad(array, padding, "edge").reshape(new_dims)
 
@@ -63,9 +63,6 @@ def create(model: str, resolution: int, ckpt_path: str):
   Returns:
     The model function and the corresponding preprocessing function.
   """
-  # Assert that there is only one host!
-  assert jax.host_count() == 1, "Multi-host setups not supported under JAX."
-
   try:
     model = models.KNOWN_MODELS[model].partial(num_classes=1000)
   except KeyError:
@@ -80,7 +77,7 @@ def create(model: str, resolution: int, ckpt_path: str):
   model_call = jax.pmap(_model_call, static_broadcasted_argnums=[1])
 
   def call(features):
-    images = features["image"].numpy()
+    images = features["image"]
     # We have to pad the images in case the batch_size is not divisibly by
     # the device count.
     images_for_pmap = _pad_for_pmap(images)

@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Robustness Metrics Authors.
+# Copyright 2021 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ class TimingStatsMetric(metrics_base.Metric):
     self._time_deltas_in_s = []
     super().__init__(dataset_info)
 
-  def add_predictions(self, model_predictions) -> None:
+  def add_predictions(self, model_predictions, metadata) -> None:
     self._time_deltas_in_s.append(model_predictions.time_in_s)
 
   def result(self) -> Dict[str, float]:

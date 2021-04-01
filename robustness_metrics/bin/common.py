@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Robustness Metrics Authors.
+# Copyright 2021 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,12 +16,17 @@
 # Lint as: python3
 """Tools useful for all executable scripts."""
 import collections
+import functools
 import importlib
+import math
 import time
 import types as pytypes
-from typing import Text, Iterator, Callable, Any, Sequence
+from typing import Any, Callable, Iterator, Tuple, Sequence, Optional, Dict
 
 from absl import logging
+import clu.deterministic_data as clu_dd
+import jax
+import numpy as np
 import robustness_metrics as rm
 from robustness_metrics.common import types
 import tensorflow as tf
@@ -30,7 +35,7 @@ PredictionModel = Callable[[types.Features], Any]
 PreprocessFn = Callable[[types.Features], types.Features]
 
 
-def load_module_from_path(model_path: Text) -> pytypes.ModuleType:
+def load_module_from_path(model_path: str) -> pytypes.ModuleType:
   """Load the Python module at the given path.
 
   Args:
@@ -45,11 +50,15 @@ def load_module_from_path(model_path: Text) -> pytypes.ModuleType:
   return module
 
 
-def parse_reports_names(reports_names: Sequence[Text]):
+def parse_reports_names(
+    reports_names: Sequence[str],
+    measurements: Optional[Dict[str, Sequence[str]]] = None):
   """Construct the necessry datasets and metrics for the given reports.
 
   Args:
     reports_names: The names of the reports.
+    measurements: An optional set of metrics to compute. The dictionary is
+      expected to map dataset names to the list of metrics to compute on them.
 
   Returns:
     A mapping from the report name to the corresponding Report objects.
@@ -67,14 +76,24 @@ def parse_reports_names(reports_names: Sequence[Text]):
   # We store the following dict: dataset_name -> metric_name -> metric
   metrics = collections.defaultdict(dict)
   datasets = {}
+
+  def add_dataset_and_metric(dataset_name, metric_name):
+    if dataset_name not in datasets:
+      datasets[dataset_name] = rm.datasets.get(dataset_name)
+    with tf.device("job:localhost"):
+      metric = rm.metrics.get(metric_name,
+                              datasets[dataset_name].info)
+      metrics[dataset_name][metric_name] = metric
+
   for report in reports.values():
     for spec in report.required_measurements:
-      if spec.dataset_name not in datasets:
-        datasets[spec.dataset_name] = rm.datasets.get(spec.dataset_name)
-      with tf.device("job:localhost"):
-        metric = rm.metrics.get(spec.metric_name,
-                                datasets[spec.dataset_name].info)
-        metrics[spec.dataset_name][spec.metric_name] = metric
+      add_dataset_and_metric(spec.dataset_name, spec.metric_name)
+
+  if measurements:
+    for dataset_name, metric_names in measurements.items():
+      for metric_name in metric_names:
+        add_dataset_and_metric(dataset_name, metric_name)
+
   return reports, metrics, datasets
 
 
@@ -91,7 +110,7 @@ def default_distribution_strategy():
 
 
 def _slice_dictionary(tensor_dict, i: int):
-  return {key: tensor[i] for key, tensor in tensor_dict.items()}
+  return jax.tree_map(lambda x: x[i], tensor_dict)
 
 
 def materialize(strategy: tf.distribute.Strategy, value_or_nested_dict):
@@ -119,38 +138,143 @@ def materialize(strategy: tf.distribute.Strategy, value_or_nested_dict):
 
 def compute_predictions(
     model: PredictionModel, dataset: tf.data.Dataset,
-    strategy: tf.distribute.Strategy) -> Iterator[types.ModelPredictions]:
+    strategy: tf.distribute.Strategy, batch_size: int
+) -> Iterator[Tuple[types.ModelPredictions, types.Features]]:
   """Yield the predictions of the model on the given dataset.
-
-  Note that the dataset is expected to yield batches of tensors.
 
   Args:
     model: A function that takes tensor-valued features and returns a vector of
       predictions.
     dataset: The dataset that the function consumes to produce the predictions.
     strategy: The distribution strategy to use when computing.
+    batch_size: The batch size that should be used.
+
+  Yields:
+    Pairs of model predictions and the corresponding metadata.
+  """
+  with strategy.scope():
+    dataset = dataset.batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE)
+    options = tf.data.Options()
+    options.experimental_distribute.auto_shard_policy = (
+        tf.data.experimental.AutoShardPolicy.DATA)
+    dataset = dataset.with_options(options)
+
+  for features in strategy.experimental_distribute_dataset(dataset):
+    time_start = time.time()
+    if isinstance(strategy, tf.distribute.experimental.TPUStrategy):
+      # TODO(josipd): Figure this out better. We can't easily filter,
+      #               as they are PerReplica values, not tensors.
+      features_model = {"image": features["image"]}
+    else:
+      features_model = features
+    predictions = materialize(strategy,
+                              strategy.run(model, args=(features_model,)))
+    time_end = time.time()
+    time_delta_per_example = (time_end - time_start) / predictions.shape[0]
+    metadatas = materialize(strategy, features["metadata"])
+    for i in range(predictions.shape[0]):
+      model_predictions = types.ModelPredictions(
+          predictions=[predictions[i]],
+          time_in_s=time_delta_per_example)
+      metadata_i = _slice_dictionary(metadatas, i)
+      yield model_predictions, metadata_i
+
+
+def compute_predictions_jax(
+    model: PredictionModel, dataset: tf.data.Dataset, batch_size: int
+)-> Iterator[Tuple[types.ModelPredictions, types.Features]]:
+  """Yield the predictions of the given JAX model on the given dataset.
+
+  Note that this also works in multi-host configurations. You have to make
+  sure that this function gets called on all hosts. The results will be yielded
+  only to the host with a jax.host_id() equal to 0.
+
+  Args:
+    model: A function that takes tensor-valued features and returns a vector of
+      predictions.
+    dataset: The dataset that the function consumes to produce the predictions.
+    batch_size: The batch size that should be used.
 
   Yields:
     The predictions of the model on the dataset.
   """
 
-  for features in strategy.experimental_distribute_dataset(dataset):
-    # TODO(josipd): Figure out how to pass only tpu-allowed types.
+  def _gather(inputs):
+    return jax.lax.all_gather(inputs, "i")
+  gather = jax.pmap(_gather, axis_name="i")
+
+  def infer(features):
+    probabilities = model(features)
+    return_vals = (probabilities, features["metadata"], features["mask"])
+    return_vals_reshaped = jax.tree_map(
+        lambda x: x.reshape((jax.local_device_count(), -1) + x.shape[1:]),
+        return_vals
+    )
+    return jax.tree_map(lambda x: x[0], gather(return_vals_reshaped))
+
+  if dataset.cardinality() < 0:
+    raise ValueError(
+        "The cardinality must be known when running JAX multi-host models.")
+  total_batches = math.ceil(dataset.cardinality() / batch_size)
+  lcm = lambda x, y: (x * y) // math.gcd(x, y)
+  # We want each shard (host) to get an equal number of batches.
+  total_batches_padded = lcm(jax.host_count(), total_batches)
+  logging.info("Total batches %d, rounded up to %d",
+               total_batches, total_batches_padded)
+
+  def pad_strings(array):
+    if array.dtype != tf.string:
+      return array
+    array_bytes = tf.strings.unicode_decode(array, "UTF-8")
+    # The return type is either Tensor or RaggedTensor.
+    try:
+      # When a RaggedTensor, which we need to convert it.
+      # to_tensor() adds a leading dimension of size 1, which we drop.
+      array_bytes = array_bytes.to_tensor()[0]
+    except AttributeError:
+      pass
+    array_size = tf.size(array_bytes)
+    with tf.control_dependencies([
+        tf.compat.v1.assert_less_equal(array_size, 1024)]):
+      packed = tf.pad(array_bytes, [[0, 1024 - array_size]])
+    return {"__packed": tf.ensure_shape(packed, [1024])}
+
+  def unpad_strings(array):
+    if isinstance(array, dict):
+      with_trailing_zeros = bytes(tf.strings.unicode_encode(
+          np.asarray(array["__packed"]).reshape(-1), "UTF-8").numpy())
+      return with_trailing_zeros.rstrip(b"\x00")
+    else:
+      return np.asarray(array)
+
+  dataset = clu_dd.pad_dataset(
+      dataset.map(functools.partial(tf.nest.map_structure, pad_strings)),
+      batch_dims=[batch_size],
+      pad_up_to_batches=total_batches_padded,
+      cardinality=None,  # It will be inferred from the datset.
+  ).batch(batch_size)
+
+  # The shard for the current host.
+  dataset_shard = dataset.shard(jax.host_count(), jax.host_id())
+  logging.info("Batches per host: %d", dataset_shard.cardinality())
+  for features in dataset_shard.as_numpy_iterator():
     time_start = time.time()
-    predictions = materialize(
-        strategy, strategy.run(model, args=({
-            "image": features["image"]
-        },)))
+    # There is a bug in XLA, the following fails for int8s.
+    features["mask"] = features["mask"].astype(np.int32)
+
+    flatten = lambda array: array.reshape((-1,) + array.shape[2:])
+    predictions, metadatas, masks = jax.tree_map(flatten, infer(features))
+
     time_end = time.time()
     time_delta_per_example = (time_end - time_start) / predictions.shape[0]
-    try:
-      element_ids = materialize(strategy, features["element_id"])
-    except KeyError:
-      element_ids = [None] * predictions.shape[0]
-    metadatas = materialize(strategy, features["metadata"])
-    for i in range(predictions.shape[0]):
-      yield types.ModelPredictions(
-          element_id=element_ids[i],
-          metadata=_slice_dictionary(metadatas, i),
-          predictions=[predictions[i]],
-          time_in_s=time_delta_per_example)
+    predictions = np.asarray(predictions)  # Materialize.
+    if jax.host_id() == 0:
+      for i in range(predictions.shape[0]):
+        if masks[i]:
+          predictions_i = types.ModelPredictions(
+              predictions=[predictions[i]], time_in_s=time_delta_per_example)
+          metadata_i = _slice_dictionary(metadatas, i)
+          is_leaf_fn = lambda x: isinstance(x, dict) and "__packed" in x
+          metadata_i_unpadded = jax.tree_map(
+              unpad_strings, metadata_i, is_leaf=is_leaf_fn)
+          yield predictions_i, metadata_i_unpadded

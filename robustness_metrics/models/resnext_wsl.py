@@ -14,14 +14,17 @@
 # limitations under the License.
 
 # Lint as: python3
-"""VGG Models from torchvision.
+"""Weakly Supervised ResNext.
 
-For more information on the models please refer to
+For more information on the models please refer to the paper
 
-  Very Deep Convolutional Networks for Large-Scale Image Recognition
-  International Conference on Learning Representations, 2015
+  Mahajan, Dhruv, et al.
+  "Exploring the limits of weakly supervised pretraining."
+  Proceedings of the European Conference on Computer Vision (ECCV). 2018.
 
-and the PyTorch documentation: https://pytorch.org/hub/pytorch_vision_vgg/
+and the PyTorch documentation:
+
+   https://pytorch.org/hub/facebookresearch_WSL-Images_resnext/
 
 Note that the model will be downloaded on the first run.
 """
@@ -31,11 +34,17 @@ from robustness_metrics.common import pipeline_builder
 import torch
 
 
-def create():
-  """Loads the VGG ImageNet model."""
+def create(variant):
+  """Loads the model.
+
+  Args:
+    variant: One of 32x8d,32x16d,32x32d,32x48d.
+  Returns:
+    The model and the pre-processing function.
+  """
   with torch.set_grad_enabled(False):
     model = torch.hub.load(
-        "pytorch/vision:v0.6.0", "vgg11", pretrained=True).eval()
+        "facebookresearch/WSL-Images", f"resnext101_{variant}_wsl").eval()
 
   with_cuda = torch.cuda.is_available()
   if with_cuda:
@@ -62,5 +71,5 @@ def create():
 
   preprocess_config = "resize_small(256)|central_crop(224)|value_range(0,1)"
   preprocess_fn = pipeline_builder.get_preprocess_fn(
-      preprocess_config, remove_tpu_dtypes=False)
+      preprocess_config, remove_tpu_dtypes=True)
   return call, preprocess_fn

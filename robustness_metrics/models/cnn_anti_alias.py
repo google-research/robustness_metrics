@@ -14,53 +14,51 @@
 # limitations under the License.
 
 # Lint as: python3
-"""VGG Models from torchvision.
+"""Anti aliased CNNs.
 
 For more information on the models please refer to
 
-  Very Deep Convolutional Networks for Large-Scale Image Recognition
-  International Conference on Learning Representations, 2015
+  https://github.com/adobe/antialiased-cnns
 
-and the PyTorch documentation: https://pytorch.org/hub/pytorch_vision_vgg/
-
+You need `antialiased-cnns` to be on sys.path before loading this module.
 Note that the model will be downloaded on the first run.
+
+The model scores 77.2% accuracy on ImageNet and 65.0% on ImageNet-V2.
 """
-from absl import logging
+import antialiased_cnns
 import numpy as np
 from robustness_metrics.common import pipeline_builder
 import torch
 
 
-def create():
-  """Loads the VGG ImageNet model."""
-  with torch.set_grad_enabled(False):
-    model = torch.hub.load(
-        "pytorch/vision:v0.6.0", "vgg11", pretrained=True).eval()
+def create(config=None):
+  """Loads the Anti Alias model."""
 
-  with_cuda = torch.cuda.is_available()
-  if with_cuda:
-    model.to("cuda")
-  else:
-    logging.warn("Running on CPU, no CUDA detected.")
+  del config  # Unused argument
+
+  with torch.set_grad_enabled(False):
+    model = antialiased_cnns.resnet50(pretrained=True)
+    model = model.eval()
+
+  image_mean = [0.485, 0.456, 0.406]
+  image_std = [0.229, 0.224, 0.225]
 
   def call(features):
-    images = features["image"].numpy()
-    # Normalize according to the documentation. Note that the pro-processing
+    # Normalize according to the documentation. Note that the pre-processing
     # will already have the range normalized to [0, 1].
-    mean = [0.485, 0.456, 0.406]
-    std = [0.229, 0.224, 0.225]
-    images_normalized = (images - mean) / std
-    # Reshape from [batch, h, w, c] -> [batch, c, h, w]
-    images_normalized_bchw = np.transpose(
-        images_normalized, [0, 3, 1, 2]).astype(np.float32).copy()
-    with torch.no_grad():
-      images_torch = torch.from_numpy(images_normalized_bchw)
-      if with_cuda:
-        images_torch = images_torch.to("cuda")
-      logits = model(images_torch)
-      return torch.nn.functional.softmax(logits, dim=-1).cpu().numpy()
+    images_normalized = (features["image"] - image_mean) / image_std
 
-  preprocess_config = "resize_small(256)|central_crop(224)|value_range(0,1)"
+    # Reshape from [batch, h, w, c] -> [batch, c, h, w]
+    images_torch = torch.tensor(
+        np.transpose(images_normalized, [0, 3, 1, 2]).astype(np.float32))
+
+    with torch.no_grad():
+      logits = model(images_torch)
+      return logits.softmax(dim=-1).cpu().numpy()
+
+  preprocess_config = ("resize_small(256)|"
+                       "central_crop(224)|"
+                       "value_range(0,1)")
   preprocess_fn = pipeline_builder.get_preprocess_fn(
       preprocess_config, remove_tpu_dtypes=False)
   return call, preprocess_fn

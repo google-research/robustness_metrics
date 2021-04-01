@@ -14,23 +14,21 @@
 # limitations under the License.
 
 # Lint as: python3
-"""The basic types and classes that we use in the project."""
-
-from typing import Optional, List, Text, Any, Dict
-import dataclasses
+"""An example tensorflow model."""
+import tensorflow as tf
 
 
-Features = Dict[Text, Any]
+class Model:
+
+  def __init__(self):
+    self.weights = tf.ones((3, 1000))
+
+  def __call__(self, features):
+    images = tf.reshape(features["image"], (-1, 224, 224, 3))
+    means = tf.reduce_mean(images, axis=(1, 2))
+    logits = tf.matmul(means, self.weights)
+    return tf.nn.softmax(logits, axis=-1)
 
 
-@dataclasses.dataclass(frozen=True)
-class ModelPredictions:
-  """Holds the predictions of a model on a specific dataset example.
-
-  Properties:
-    predictions: A list of predictions made on this example, each represented as
-      a list of floats.
-    time_in_s: The time in seconds the model took to make the predictions.
-  """
-  predictions: List[List[float]]
-  time_in_s: Optional[float] = None
+def create():
+  return Model(), None

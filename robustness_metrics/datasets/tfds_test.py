@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Robustness Metrics Authors.
+# Copyright 2021 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import tensorflow_datasets as tfds
 
 class TaskAdaptationDatasetsTest(parameterized.TestCase, tf.test.TestCase):
 
-  necessary_fields = ["element_id", "image", "metadata"]
+  necessary_fields = ["image", "metadata"]
 
   @parameterized.parameters([
       ("cifar10",),
@@ -34,6 +34,7 @@ class TaskAdaptationDatasetsTest(parameterized.TestCase, tf.test.TestCase):
       ("imagenet_a",),
       ("imagenet_c(corruption_type='gaussian_noise',severity=1)",),
       ("imagenet_v2(variant='MATCHED_FREQUENCY')",),
+      ("synthetic(variant='location')",),
   ])
   def test_that_it_loads_with_default(self, name, label_field="label"):
     dataset_object = dataset = rm.datasets.get(name)
@@ -45,16 +46,16 @@ class TaskAdaptationDatasetsTest(parameterized.TestCase, tf.test.TestCase):
     except KeyError:
       num_classes = 1000
     self.assertEqual(dataset_object.info.num_classes, num_classes)
-    if "imagenet" in name:
+    if ("imagenet" in name) or ("synthetic" in name):
       expected_shape = [224, 224, 3]
     else:
       expected_shape = [32, 32, 3]
-    dataset = dataset_object.load(preprocess_fn=None, batch_size=8)
+    dataset = dataset_object.load(preprocess_fn=None).batch(8)
     for features in dataset.take(1):
       for feature in self.necessary_fields + [label_field]:
         self.assertIn(feature, features.keys())
       self.assertEqual(features["image"].shape, [8] + expected_shape)
-      self.assertEqual(features["element_id"].dtype, tf.int64)
+      self.assertEqual(features["metadata"]["element_id"].dtype, tf.int64)
 
   def test_that_it_preprocesses_and_batches(self, batch_size=8):
 
@@ -64,8 +65,7 @@ class TaskAdaptationDatasetsTest(parameterized.TestCase, tf.test.TestCase):
       return features
 
     dataset = rm.datasets.get("imagenet").load(
-        preprocess_fn=preprocess_fn,
-        batch_size=batch_size)
+        preprocess_fn=preprocess_fn).batch(batch_size)
 
     for features in dataset.take(1):
       for feature in self.necessary_fields + [

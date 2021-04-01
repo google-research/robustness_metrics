@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Robustness Metrics Authors.
+# Copyright 2021 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ Example usage:
 ```
 from robustness_metrics import datasets
 dataset = datasets.get("imagenet_a")
-tf_dataset = dataset.load(preprocess_fn, batch_size)
+tf_dataset = dataset.load(preprocess_fn)
 ```
 """
 import abc
@@ -29,7 +29,7 @@ from typing import Callable, List, Optional
 import dataclasses
 from robustness_metrics.common import registry
 from robustness_metrics.common import types
-import tensorflow.compat.v1 as tf_v1
+import tensorflow as tf
 
 
 @dataclasses.dataclass(frozen=True)
@@ -47,8 +47,8 @@ class Dataset(metaclass=abc.ABCMeta):
 
   @abc.abstractmethod
   def load(self,
-           preprocess_fn: Optional[Callable[[types.Features], types.Features]],
-           batch_size: int = 8) -> tf_v1.data.Dataset:
+           preprocess_fn: Optional[Callable[[types.Features], types.Features]]
+           ) -> tf.data.Dataset:
     """Loads the dataset.
 
     Note: The provided `preprocess_fn` gets *always* run in graph-mode.
@@ -56,7 +56,6 @@ class Dataset(metaclass=abc.ABCMeta):
     Args:
       preprocess_fn: The function used to preprocess the dataset before
         batching. Set to `None` for the per-dataset default.
-      batch_size: The number of examples in each batch.
 
     Returns:
       The pre-processed and batched dataset. Each element passed to

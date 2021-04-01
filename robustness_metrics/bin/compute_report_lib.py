@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Robustness Metrics Authors.
+# Copyright 2021 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,16 +16,17 @@
 # Lint as: python3
 """The reusable components."""
 import collections
-from typing import Sequence, Text, Optional
+from typing import Dict, Sequence, Optional
 from robustness_metrics.bin import common as bin_common
 import tensorflow as tf
 
 
 def compute_reports(strategy: tf.distribute.Strategy,
-                    reports_names: Sequence[Text],
+                    reports_names: Sequence[str],
                     model: bin_common.PredictionModel,
                     preprocess_fn: Optional[bin_common.PreprocessFn],
-                    batch_size: int):
+                    batch_size: int,
+                    measurements: Optional[Dict[str, Sequence[str]]] = None):
   """Compute the report and return the results.
 
   Args:
@@ -34,21 +35,24 @@ def compute_reports(strategy: tf.distribute.Strategy,
     model: The model that will be evaluated.
     preprocess_fn: Used to preprocess the dataset before batching.
     batch_size: The batch size to use when computing the predictions.
+    measurements: An optional set of metrics to compute. The dictionary is
+      expected to map dataset names to the list of metrics to compute on them.
   Returns:
     A dictionary metric name -> dataset_name -> result.
     A dictionary report name -> result dictionary.
   """
-  reports, metrics, datasets = bin_common.parse_reports_names(reports_names)
+  reports, metrics, datasets = bin_common.parse_reports_names(reports_names,
+                                                              measurements)
 
   for dataset_name, dataset in datasets.items():
-    tf_dataset = dataset.load(preprocess_fn=preprocess_fn,
-                              batch_size=batch_size)
-    for predictions in bin_common.compute_predictions(model,
-                                                      tf_dataset,
-                                                      strategy):
+    tf_dataset = dataset.load(preprocess_fn=preprocess_fn)
+    for predictions, metadata in bin_common.compute_predictions(model,
+                                                                tf_dataset,
+                                                                strategy,
+                                                                batch_size):
       with tf.device("job:localhost"):
         for metric in metrics[dataset_name].values():
-          metric.add_predictions(predictions)
+          metric.add_predictions(predictions, metadata)
 
   metric_results = collections.defaultdict(dict)
   for dataset_name, metrics_dict in metrics.items():

@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Robustness Metrics Authors.
+# Copyright 2021 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 # Lint as: python3
 """EfficientNet models pre-trained with different training protocols.
 
-EfficientNet: https://arxiv.org/abs/1805.09501
+EfficientNet: https://arxiv.org/abs/1905.11946
 AutoAugment: https://arxiv.org/abs/1805.09501
 Adv-Prop: https://arxiv.org/abs/1911.09665
 Noisy Student: https://arxiv.org/abs/1911.04252
@@ -32,8 +32,18 @@ import tensorflow.compat.v1 as tf1
 import tensorflow_hub as hub
 
 CROP_PADDING = 32
-EFFICIENTNET_RESOLUTIONS = [224, 240, 260, 300, 380, 456, 528, 600]
-
+EFFICIENTNET_RESOLUTIONS = {
+    "b0": 224,
+    "b1": 240,
+    "b2": 260,
+    "b3": 300,
+    "b4": 380,
+    "b5": 456,
+    "b6": 528,
+    "b7": 600,
+    "l2": 800,
+    "l2_475": 475,
+}
 
 GS_ROOT = "gs://cloud-tpu-checkpoints/efficientnet/tfhub"
 MODEL_PATHS = {
@@ -49,21 +59,28 @@ MODEL_PATHS = {
 
 
 
-def create(model_index=0, variant="std", resolution=None):
+def create(model_size="b0", variant="std", resolution=None):
   """Create EfficientNet models with corresponding preprocessing operations."""
 
   if variant not in ("std", "aa", "adv-prop", "noisy-student"):
     raise ValueError(f"EfficientNet variant not supported: {variant}")
 
   # Note that for the standard EfficientNet variant only B0-B5 architectures are
-  # supported, and B0-B7 for all other variants.
-  if (variant == "std" and model_index not in range(6)) \
-     or (variant != "std" and model_index not in range(8)):
+  # supported, B0-B7 for all other variants. Noisy-Student also supports L2
+  # and L2_475 (with a resolution of 475).
+  valid = (variant == "std" and model_size in {f"b{i}" for i in range(6)}) or \
+          (variant != "std" and model_size in {f"b{i}" for i in range(8)}) or \
+          (variant == "noisy-student" and model_size in ("l2", "l2_475"))
+  if not valid:
     raise ValueError(
-        f"Invalid `model_index` {model_index} for EfficientNet `variant` "
-        f"{variant}!")
+        f"Invalid `model_size` {model_size!r} for EfficientNet `variant` "
+        f"{variant!r}!")
 
-  noisy_student = hub.KerasLayer(MODEL_PATHS[variant].format(model_index))
+  if model_size.startswith("l2"):
+    noisy_student = hub.KerasLayer(MODEL_PATHS[variant + "-l2"].format(
+        model_size))
+  else:
+    noisy_student = hub.KerasLayer(MODEL_PATHS[variant].format(model_size))
 
   @tf.function
   def model(features):
@@ -101,7 +118,7 @@ def create(model_index=0, variant="std", resolution=None):
       return image
 
     features["image"] = _decode_and_center_crop(
-        features["image"], EFFICIENTNET_RESOLUTIONS[model_index])
+        features["image"], EFFICIENTNET_RESOLUTIONS[model_size])
     features["image"] = tf1.cast(features["image"], tf1.float32)
     # We assume the modules expect pixels in [-1, 1].
     features["image"] = features["image"] / 127.5 - 1.0

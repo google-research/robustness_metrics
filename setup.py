@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Robustness Metrics Authors.
+# Copyright 2021 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ setup(
     install_requires=[
         "absl-py",
         "pandas",
+        "scikit-learn",
         "tabulate",
         "tensorflow>=2.0.0",
         "tensorflow_datasets",

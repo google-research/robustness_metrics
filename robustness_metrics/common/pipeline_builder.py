@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The Robustness Metrics Authors.
+# Copyright 2021 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,29 @@ TPU_SUPPORTED_DTYPES = [
     tf.bool, tf.int32, tf.int64, tf.bfloat16, tf.float32, tf.complex64,
     tf.uint32
 ]
+
+
+def _get_delete_field(key):
+  def _delete_field(datum):
+    if key in datum:
+      del datum[key]
+    return datum
+  return _delete_field
+
+
+def keep_only_tpu_types(data):
+  """Remove data that are TPU-incompatible (e.g. filename of type tf.string)."""
+  for key in list(data.keys()):
+    if isinstance(data[key], dict):
+      data[key] = keep_only_tpu_types(data[key])
+    else:
+      if data[key].dtype not in TPU_SUPPORTED_DTYPES:
+        tf.logging.warning(
+            "Removing key '{}' from data dict because its dtype {} is not in "
+            " the supported dtypes: {}".format(key, data[key].dtype,
+                                               TPU_SUPPORTED_DTYPES))
+        data = _get_delete_field(key)(data)
+  return data
 
 
 def get_preprocess_fn(pp_pipeline, remove_tpu_dtypes=True):
@@ -50,14 +73,6 @@ def get_preprocess_fn(pp_pipeline, remove_tpu_dtypes=True):
   Raises:
     ValueError: if preprocessing function name is unknown
   """
-
-  def get_delete_field(key):
-    def _delete_field(datum):
-      if key in datum:
-        del datum[key]
-      return datum
-    return _delete_field
-
   def _preprocess_fn(data):
     """The preprocessing function that is returned."""
 
@@ -75,14 +90,7 @@ def get_preprocess_fn(pp_pipeline, remove_tpu_dtypes=True):
       data = cls.apply(*args)(data)
 
     if remove_tpu_dtypes:
-      # Remove data that are TPU-incompatible (e.g. filename of type tf.string).
-      for key in list(data.keys()):
-        if data[key].dtype not in TPU_SUPPORTED_DTYPES:
-          tf.logging.warning(
-              "Removing key '{}' from data dict because its dtype {} is not in "
-              " the supported dtypes: {}".format(key, data[key].dtype,
-                                                 TPU_SUPPORTED_DTYPES))
-          data = get_delete_field(key)(data)
+      data = keep_only_tpu_types(data)
     tf.logging.info("Data after pre-processing:\n%s", data)
     return data
 
