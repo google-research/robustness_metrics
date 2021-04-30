@@ -14,23 +14,13 @@
 # limitations under the License.
 
 # Lint as: python3
-"""The basic types and classes that we use in the project."""
+"""The basic types."""
 
-from typing import Optional, List, Text, Any, Dict
-import dataclasses
+from typing import Text, Any, Dict, Union
+import jax.numpy as jnp
+import numpy as np
+import tensorflow as tf
 
 
 Features = Dict[Text, Any]
-
-
-@dataclasses.dataclass(frozen=True)
-class ModelPredictions:
-  """Holds the predictions of a model on a specific dataset example.
-
-  Properties:
-    predictions: A list of predictions made on this example, each represented as
-      a list of floats.
-    time_in_s: The time in seconds the model took to make the predictions.
-  """
-  predictions: List[List[float]]
-  time_in_s: Optional[float] = None
+Array = Union[np.ndarray, jnp.ndarray, tf.types.experimental.TensorLike]

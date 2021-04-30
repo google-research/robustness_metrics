@@ -145,7 +145,7 @@ def main(argv):
         labels.append(int(metadata["label"]))
       except KeyError:  # Not all datasets have labels.
         pass
-      pred_probs.append(np.mean(predictions.predictions, axis=0))
+      pred_probs.append(np.mean(predictions, axis=0))
       processed += 1
       if processed % 5000 == 0:
         if cardinality < 0:

@@ -102,17 +102,16 @@ class Synthetic(metrics_base.Metric):
                        (image_id, dataset_variant))
 
   def add_predictions(self,
-                      model_predictions: types.ModelPredictions,
-                      metadata) -> None:
-    for prediction in model_predictions.predictions:
-      image_id = metadata["image_id"]
-      dataset_variant = metadata["dataset_variant"]
-      # Example group IDs: `area(0.5)` or `rotation(121)`.
-      group_id = self.map_path_to_group(image_id, dataset_variant)
+                      model_predictions: types.Array,
+                      metadata: types.Features) -> None:
+    image_id = metadata["image_id"]
+    dataset_variant = metadata["dataset_variant"]
+    # Example group IDs: `area(0.5)` or `rotation(121)`.
+    group_id = self.map_path_to_group(image_id, dataset_variant)
 
-      correct = metadata["label"]
-      predicted = np.argmax(prediction)
-      self._groups[group_id].append(int(predicted == correct))
+    correct = metadata["label"]
+    predicted = np.argmax(model_predictions)
+    self._groups[group_id].append(int(predicted == correct))
 
   def result(self) -> Dict[Text, float]:
     scores = {}

@@ -16,8 +16,7 @@
 """Metrics for model diversity."""
 
 import itertools
-from typing import Any, Dict, Optional, Text
-
+from typing import Dict, Optional, Text
 from robustness_metrics.common import types
 from robustness_metrics.metrics import base as metrics_base
 import tensorflow as tf
@@ -115,26 +114,27 @@ class AveragePairwiseDiversity(metrics_base.Metric):
                                         aggregation=tf.VariableAggregation.SUM)
 
   def add_predictions(self,
-                      model_predictions: types.ModelPredictions,
+                      model_predictions: types.Array,
                       metadata: types.Features) -> None:
     # To update the metric on individual data points, expand the inputs to have
     # batch size 1 and call `add_batch`.
-    batch_predictions = tf.expand_dims(model_predictions.predictions, axis=1)
+    batch_predictions = tf.expand_dims(model_predictions, axis=1)
     if 'label' in metadata:
       metadata['label'] = tf.expand_dims(metadata['label'], axis=1)
     self.add_batch(batch_predictions, **metadata)
 
   def add_batch(self,
-                model_predictions,
-                **metadata: Optional[Dict[Text, Any]]) -> None:
+                model_predictions: types.Array,
+                *,
+                label: Optional[types.Array] = None) -> None:
     """Adds a batch of predictions for a batch of examples.
 
     Args:
-      model_predictions: Tensor-like of shape [num_models, batch_size,
+      model_predictions: Array of shape [num_models, batch_size,
         num_classes] representing the multiple predictions, one for each example
         in the batch.
-      **metadata: Metadata of model predictions. Only necessary if
-        normalize_disagreement is True.
+      label: Array of shape [...]. Only necessary if normalize_disagreement is
+        True so that the metric can also compute accuracy.
     """
     model_predictions = tf.convert_to_tensor(model_predictions)
     num_models = model_predictions.shape[0]
@@ -163,7 +163,7 @@ class AveragePairwiseDiversity(metrics_base.Metric):
     self._cosine_distance.assign_add(batch_cosine_distance)
     if self._normalize_disagreement:
       ensemble_predictions = tf.reduce_mean(model_predictions, axis=0)
-      self._accuracy.add_batch(ensemble_predictions, **metadata)
+      self._accuracy.add_batch(ensemble_predictions, label=label)
 
   def reset_states(self):
     if self._normalize_disagreement:

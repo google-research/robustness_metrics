@@ -22,7 +22,7 @@ import tensorflow as tf
 
 
 def _normalize(x):
-  return [x_i / sum(x) for x_i in x]
+  return np.array([x_i / sum(x) for x_i in x])
 
 
 class MetricTest(tf.test.TestCase):
@@ -64,10 +64,8 @@ class AccuracyTest(tf.test.TestCase):
 
   def test_single_prediction(self):
     metric = rm.metrics.base.get("accuracy")()
-    metric.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[[.2, .8], [.7, .3]]),
-        metadata={"label": 1, "element_id": 1})
+    metric.add_predictions([.2, .8],
+                           metadata={"label": 1, "element_id": 1})
     self.assertDictsAlmostEqual(metric.result(), {"accuracy": 1.})
 
   def test_single_prediction_labelset(self):
@@ -76,28 +74,22 @@ class AccuracyTest(tf.test.TestCase):
         rm.datasets.base.DatasetInfo(num_classes=3, appearing_classes=[0, 1]))
 
     metric.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[_normalize([.2, .8, .6]),
-                         _normalize([.7, .3, .4])]),
+        _normalize([.2, .8, .6]),
         metadata={"label": 1, "element_id": 1})
     self.assertDictsAlmostEqual(metric.result(), {"accuracy": 1.})
 
   def test_multiple_predictions(self):
     metric = rm.metrics.base.get("accuracy")()
-    metric.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[[.2, .8], [.7, .3]]),
-        metadata={"label": 1, "element_id": 0})
-    metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[.51, .49]]),
-        metadata={"label": 0, "element_id": 1})
+    metric.add_predictions([.2, .8],
+                           metadata={"label": 1, "element_id": 0})
+    metric.add_predictions([.51, .49],
+                           metadata={"label": 0, "element_id": 1})
     self.assertDictsAlmostEqual(metric.result(), {"accuracy": 1.})
 
     expected_error = "(.*) but you added element id 1 twice."
     with self.assertRaisesRegex(ValueError, expected_error):
-      metric.add_predictions(
-          rm.common.types.ModelPredictions(predictions=[[.51, .49]]),
-          metadata={"label": 0, "element_id": 1})
+      metric.add_predictions([.51, .49],
+                             metadata={"label": 0, "element_id": 1})
 
   def test_add_batch(self):
     metric = rm.metrics.base.get("accuracy")()
@@ -121,20 +113,17 @@ class AccuracyTest(tf.test.TestCase):
         "accuracy(use_dataset_labelset=True)",
         rm.datasets.base.DatasetInfo(num_classes=3, appearing_classes=[0, 2]))
     metric.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[_normalize([.2, .3, .8]), _normalize([.7, .4, .3])]),
+        (_normalize([.2, .3, .8]) + _normalize([.7, .4, .3])) / 2.,
         metadata={"label": 2, "element_id": 0})
     metric.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[_normalize([.51, .8, .49])]),
+        _normalize([.51, .8, .49]),
         metadata={"label": 0, "element_id": 1})
     self.assertDictsAlmostEqual(metric.result(), {"accuracy": 1.})
 
     expected_error = "(.*) but you added element id 1 twice."
     with self.assertRaisesRegex(ValueError, expected_error):
       metric.add_predictions(
-          rm.common.types.ModelPredictions(
-              predictions=[_normalize([.51, .5, .49])]),
+          _normalize([.51, .5, .49]),
           metadata={"label": 0, "element_id": 1})
 
 
@@ -156,7 +145,7 @@ class AggregatedAccuracyTest(tf.test.TestCase):
         dataset_info=None)
 
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[.2, .8, .0]]),
+        [.2, .8, .0],
         metadata={
             "element_id": 0,
             "video_frame_id": "imgnet_000000/000001",
@@ -164,7 +153,7 @@ class AggregatedAccuracyTest(tf.test.TestCase):
         })
 
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[.0, .1, .9]]),
+        [.0, .1, .9],
         metadata={
             "element_id": 1,
             "video_frame_id": "imgnet_000001/000001",
@@ -172,7 +161,7 @@ class AggregatedAccuracyTest(tf.test.TestCase):
         })
 
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[.0, .1, .9]]),
+        [.0, .1, .9],
         metadata={
             "element_id": 2,
             "video_frame_id": "imgnet_000001/000002",
@@ -193,7 +182,7 @@ class AggregatedAccuracyTest(tf.test.TestCase):
         dataset_info=None)
 
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[.2, .8, .0]]),
+        [.2, .8, .0],
         metadata={
             "element_id": 0,
             "video_frame_id": "imgnet_000000/000001",
@@ -201,7 +190,7 @@ class AggregatedAccuracyTest(tf.test.TestCase):
         })
 
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[.0, .1, .9]]),
+        [.0, .1, .9],
         metadata={
             "element_id": 1,
             "video_frame_id": "imgnet_000001/000001",
@@ -209,7 +198,7 @@ class AggregatedAccuracyTest(tf.test.TestCase):
         })
 
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[.0, .1, .9]]),
+        [.0, .1, .9],
         metadata={
             "element_id": 2,
             "video_frame_id": "imgnet_000001/000002",
@@ -233,7 +222,7 @@ class AggregatedAccuracyTest(tf.test.TestCase):
 
     metric.add_predictions(
         # Correct prediction.
-        rm.common.types.ModelPredictions(predictions=[[.8, .2, .0]]),
+        [.8, .2, .0],
         metadata={
             "element_id": 0,
             "video_frame_id": "imgnet_000000/000001",
@@ -242,7 +231,7 @@ class AggregatedAccuracyTest(tf.test.TestCase):
 
     metric.add_predictions(
         # Wrong (class 3 is filtered out).
-        rm.common.types.ModelPredictions(predictions=[[.0, .1, .9]]),
+        [.0, .1, .9],
         metadata={
             "element_id": 1,
             "video_frame_id": "imgnet_000001/000001",
@@ -251,7 +240,7 @@ class AggregatedAccuracyTest(tf.test.TestCase):
 
     metric.add_predictions(
         # Correct (class 3 filtered out).
-        rm.common.types.ModelPredictions(predictions=[[.2, .1, .7]]),
+        [.2, .1, .7],
         metadata={
             "element_id": 2,
             "video_frame_id": "imgnet_000001/000002",
@@ -260,7 +249,7 @@ class AggregatedAccuracyTest(tf.test.TestCase):
 
     metric.add_predictions(
         # Correct (class 3 filtered out).
-        rm.common.types.ModelPredictions(predictions=[[.1, .2, .7]]),
+        [.1, .2, .7],
         metadata={
             "element_id": 2,
             "video_frame_id": "imgnet_000002/000001",
@@ -282,10 +271,8 @@ class PrecisionTest(tf.test.TestCase):
     dataset_info = rm.datasets.base.DatasetInfo(num_classes=3)
     metric = rm.metrics.base.get("precision")(
         top_k=1, dataset_info=dataset_info)
-    # Average prediction is [.45, .55, .0], so 1/1 are correct.
     metric.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[[.2, .8, .0], [.7, .3, .0]]),
+        [.45, .55, .0],
         metadata={"label": 1, "element_id": 1})
     self.assertDictsAlmostEqual(metric.result(), {"precision@1": 1})
 
@@ -293,22 +280,12 @@ class PrecisionTest(tf.test.TestCase):
     dataset_info = rm.datasets.base.DatasetInfo(num_classes=3)
     metric = rm.metrics.base.get("precision")(
         top_k=2, dataset_info=dataset_info)
-    # Average prediction is [.45, .4, .15], so 1/2 are correct.
     metric.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[
-                [.2, .8, .0],
-                [.7, .0, .3],
-            ]),
+        [.45, .4, .15],
         metadata={"label": 1, "element_id": 1})
-    # Average prediction is [.0, .525, .475], so 1/2 are correct.
     self.assertDictsAlmostEqual(metric.result(), {"precision@2": 1 / 2})
     metric.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[
-                [.0, .95, .05],
-                [.0, .1, .9],
-            ]),
+        [.0, .525, .475],
         metadata={"label": 0, "element_id": 2})
     # Average accuracy over the above predictions is (1/2 + 1/2) / 2 = 1/4.
     self.assertDictsAlmostEqual(metric.result(), {"precision@2": 1 / 4})
@@ -317,22 +294,12 @@ class PrecisionTest(tf.test.TestCase):
     dataset_info = rm.datasets.base.DatasetInfo(num_classes=3)
     metric = rm.metrics.base.get("precision")(
         top_k=2, dataset_info=dataset_info)
-    # Average prediction is [.1, .75, .15], so 2/2 are correct.
     metric.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[
-                [.2, .8, .0],
-                [.0, .7, .3],
-            ]),
+        [.1, .75, .15],
         metadata={"labels_multi_hot": [0, 1, 1], "element_id": 1})
     self.assertDictsAlmostEqual(metric.result(), {"precision@2": 1})
-    # Average prediction is [.0, .525, .475], so 1/2 are correct.
     metric.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[
-                [.0, .95, .05],
-                [.0, .1, .9],
-            ]),
+        [.0, .525, .475],
         metadata={"labels_multi_hot": [1, 1, 0], "element_id": 2})
     # Average accuracy over the above predictions is (1 + 1/2) / 2 = 3/4.
     self.assertDictsAlmostEqual(metric.result(), {"precision@2": 3 / 4})
@@ -349,16 +316,13 @@ class MultiLabelTopKTest(tf.test.TestCase):
     dataset_info = rm.datasets.base.DatasetInfo(num_classes=3)
     metric = rm.metrics.base.get("accuracy_top_k")(
         top_k=1, dataset_info=dataset_info)
-    # Average prediction is [.45, .55, .0], so 0/1 are correct.
     metric.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[[.2, .8, .0], [.7, .3, .0]]),
+        [.45, .55, .0],
         metadata={"labels_multi_hot": [1, 0, 0], "element_id": 1})
     self.assertDictsAlmostEqual(metric.result(), {"accuracy@1": 0})
     # If we also set the second position to be true, we get a correct guess.
     metric.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[[.2, .8, .0], [.7, .3, .0]]),
+        [.45, .55, .0],
         metadata={"labels_multi_hot": [1, 1, 0], "element_id": 1})
     # The average of the above predictions is 0.5.
     self.assertDictsAlmostEqual(metric.result(), {"accuracy@1": 0.5})
@@ -369,20 +333,16 @@ class MultiLabelTopKTest(tf.test.TestCase):
     metric = rm.metrics.get(
         "accuracy_top_k(use_dataset_labelset=True, top_k=1)",
         dataset_info=dataset_info)
-    # Average prediction is [.45, .55, .0], so 0/1 are correct.
     metric.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[[.2, .8, .0], [.7, .3, .0]]),
+        [.45, .55, .0],
         metadata={"labels_multi_hot": [1, 0, 0], "element_id": 1})
     self.assertDictsAlmostEqual(metric.result(), {"accuracy@1": 0})
     # The third position gets ignored, so these are both correct.
     metric.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[[.02, .08, .9], [.07, .03, .9]]),
+        [.045, .055, .9],
         metadata={"labels_multi_hot": [1, 1, 0], "element_id": 1})
     metric.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[[.02, .08, .9], [.07, .03, .9]]),
+        [.045, .055, .9],
         metadata={"labels_multi_hot": [0, 1, 0], "element_id": 1})
     # The average of the above predictions is 0.5.
     self.assertDictsAlmostEqual(metric.result(), {"accuracy@1": 2 / 3})
@@ -391,32 +351,17 @@ class MultiLabelTopKTest(tf.test.TestCase):
     dataset_info = rm.datasets.base.DatasetInfo(num_classes=3)
     metric = rm.metrics.base.get("accuracy_top_k")(
         top_k=2, dataset_info=dataset_info)
-    # Average prediction is [.45, .4, .15], so we get a wrong guess.
     metric.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[
-                [.2, .8, .0],
-                [.7, .0, .3],
-            ]),
+        [.45, .4, .15],
         metadata={"labels_multi_hot": [0, 0, 1], "element_id": 1})
     self.assertDictsAlmostEqual(metric.result(), {"accuracy@2": 0})
-    # Average prediction is [.0, .525, .475], so we get a correct guess.
     metric.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[
-                [.0, .95, .05],
-                [.0, .1, .9],
-            ]),
+        [.0, .525, .475],
         metadata={"labels_multi_hot": [0, 0, 1], "element_id": 2})
     # Average accuracy over the above predictions is 1/2.
     self.assertDictsAlmostEqual(metric.result(), {"accuracy@2": 1 / 2})
-    # Average prediction is [.0, .525, .475], so we get a correct guess.
     metric.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[
-                [.0, .95, .05],
-                [.0, .1, .9],
-            ]),
+        [.0, .525, .475],
         metadata={"labels_multi_hot": [1, 0, 1], "element_id": 2})
     # Average accuracy over the above three predictions is 2/3.
     self.assertDictsAlmostEqual(metric.result(), {"accuracy@2": 2 / 3})
