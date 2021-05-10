@@ -67,7 +67,7 @@ class Metric(metaclass=abc.ABCMeta):
     Args:
       model_predictions: The batch of predictions, one for each example in the
         batch.
-      **metadata: The batch metadata, possible including `labels` which is the
+      **metadata: The batch metadata, possibly including `labels` which is the
         batch of labels, one for each example in the batch.
     """
     raise NotImplementedError(
@@ -227,9 +227,17 @@ class KerasMetric(Metric):
     # we use the kwarg "label" to be consistent with the other functions that
     # use the singular name.
     self._average_predictions = False
+    label = metadata["label"]
+    if self._use_dataset_labelset:
+      model_predictions = tf.gather(
+          model_predictions, self._appearing_classes, axis=-1)
+      model_predictions /= tf.math.reduce_sum(
+          model_predictions, axis=-1, keepdims=True)
+      label = tf.convert_to_tensor([
+          self._appearing_classes.index(x) for x in label])
     self._add_prediction(
         predictions=model_predictions,
-        label=metadata["label"],
+        label=label,
         average_predictions=False)
 
   def reset_states(self):
@@ -392,20 +400,28 @@ class TopKAccuracy(Metric):
   "labels_multi_hot" field of the metadata.
   """
 
-  def __init__(self, top_k: int, dataset_info):
+  def __init__(self, top_k: int, dataset_info, use_dataset_labelset=False):
     """Initializes the object.
 
     Args:
       top_k: How many positions to consider, i.e., the k in top-k.
       dataset_info: The DatasetInfo object associated with the dataset.
+      use_dataset_labelset: If set, and the given dataset has only a subset of
+        the classes the model produces, the classes that are not in the dataset
+        will be removed.
     """
     super().__init__(dataset_info)
     self._num_classes = dataset_info.num_classes
     self._mean = tf.keras.metrics.Mean()
     self._top_k = top_k
+    self._use_dataset_labelset = use_dataset_labelset
+    self._appearing_classes = dataset_info.appearing_classes
 
   @tf.function
   def _add_prediction(self, labels, predictions):
+    if self._use_dataset_labelset:
+      predictions = tf.gather(predictions, self._appearing_classes, axis=-1)
+      labels = tf.gather(labels, self._appearing_classes)
     _, top_k_indices = tf.math.top_k(predictions, self._top_k)
     top_k_labels = tf.gather(labels, top_k_indices, batch_dims=0)
     top_k_correct = tf.reduce_any(top_k_labels > 0, axis=-1)

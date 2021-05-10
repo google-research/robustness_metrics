@@ -25,7 +25,6 @@ import robustness_metrics as rm
 import sklearn.model_selection
 import tensorflow as tf
 import tensorflow_probability as tfp
-import uncertainty_metrics as um
 
 
 _GCE_DEFAULT = ("gce(binning_scheme='adaptive',max_prob=True,"
@@ -110,7 +109,7 @@ class KerasMetricTest(parameterized.TestCase, tf.test.TestCase):
     expected_output = {
         _GCE_DEFAULT: {"gce": .45},
         _GCE_EXPLICIT_DEFAULT: {"gce": 0.45},
-        _GCE_TEMP_SCALING_ALL: {"gce": 0.0},
+        _GCE_TEMP_SCALING_ALL: {"gce": 0.0, "beta": 1.6040830888247386e+33},
         _GCE_ISOTONIC_REGR_ALL: {"gce": 0.0},
         _GCE_TEMP_SCALING_SPLIT: {"gce": 0.0},
         _GCE_ISOTONIC_REGR_SPLIT: {"gce": 0.0},
@@ -119,8 +118,16 @@ class KerasMetricTest(parameterized.TestCase, tf.test.TestCase):
         "brier": {"brier": ((.2 + .7) / 2)**2 + ((.2 + .7) / 2)**2},
         "temperature_scaling": {"beta": 1.6040830888247386e+33},
     }[name]
-    self.assertDictsAlmostEqual(metric.result(), expected_output)
-    self.assertDictsAlmostEqual(metric_ls.result(), expected_output)
+    if name == _GCE_TEMP_SCALING_SPLIT:
+      self.assertAlmostEqual(metric.result()["gce"],
+                             expected_output["gce"])
+      self.assertAllGreater(metric.result()["beta"], 0)
+      self.assertAlmostEqual(metric_ls.result()["gce"],
+                             expected_output["gce"])
+      self.assertAllGreater(metric_ls.result()["beta"], 0)
+    else:
+      self.assertDictsAlmostEqual(metric.result(), expected_output)
+      self.assertDictsAlmostEqual(metric_ls.result(), expected_output)
 
   @parameterized.parameters([(name,) for name in _UNCERTAINTY_METRICS])
   def test_binary_predictions_on_different_predictions(self, name):
@@ -151,17 +158,25 @@ class KerasMetricTest(parameterized.TestCase, tf.test.TestCase):
     expected_output = {
         _GCE_DEFAULT: {"gce": 0.51478150},
         _GCE_EXPLICIT_DEFAULT: {"gce": 0.5147815},
-        _GCE_TEMP_SCALING_ALL: {"gce": 0.48694175},
+        _GCE_TEMP_SCALING_ALL: {"gce": 0.48694175, "beta": 0.4177706241607666},
         _GCE_ISOTONIC_REGR_ALL: {"gce": 0.0},
-        _GCE_TEMP_SCALING_SPLIT: {"gce": 1.0},
+        _GCE_TEMP_SCALING_SPLIT: {"gce": 1.0, "beta": 0.4177706241607666},
         _GCE_ISOTONIC_REGR_SPLIT: {"gce": 1.0},
         "ece": {"ece": .45},
         "nll": {"nll": 0.5 * (-math.log(.8) - math.log(.3))},
         "brier": {"brier": 0.5 * (.2**2 + .2**2 + .7**2 + .7**2)},
         "temperature_scaling": {"beta": 0.4177706241607666},
     }[name]
-    self.assertDictsAlmostEqual(metric.result(), expected_output)
-    self.assertDictsAlmostEqual(metric_ls.result(), expected_output)
+    if name == _GCE_TEMP_SCALING_SPLIT:
+      self.assertAlmostEqual(metric.result()["gce"],
+                             expected_output["gce"])
+      self.assertAllGreater(metric.result()["beta"], 0)
+      self.assertAlmostEqual(metric_ls.result()["gce"],
+                             expected_output["gce"])
+      self.assertAllGreater(metric_ls.result()["beta"], 0)
+    else:
+      self.assertDictsAlmostEqual(metric.result(), expected_output)
+      self.assertDictsAlmostEqual(metric_ls.result(), expected_output)
 
   @parameterized.parameters([(name,) for name in _UNCERTAINTY_METRICS])
   def test_tertiary_prediction(self, name):
@@ -198,11 +213,11 @@ class KerasMetricTest(parameterized.TestCase, tf.test.TestCase):
         _GCE_EXPLICIT_DEFAULT:
             {"gce": 0.6174544},
         _GCE_TEMP_SCALING_ALL:
-            {"gce": 0.5588576},
+            {"gce": 0.5588576, "beta": -0.23755066096782684},
         _GCE_ISOTONIC_REGR_ALL:
             {"gce": 0.23570},
         _GCE_TEMP_SCALING_SPLIT:
-            {"gce": 1.0},
+            {"gce": 1.0, "beta": -0.23755066096782684},
         _GCE_ISOTONIC_REGR_SPLIT:
             {"gce": 1.0},
         "ece":
@@ -214,8 +229,16 @@ class KerasMetricTest(parameterized.TestCase, tf.test.TestCase):
                              ((.6 + .8) / 2)**2 + .8**2 + .85**2 + .05**2)},
         "temperature_scaling": {"beta": -0.23755066096782684}
     }[name]
-    self.assertDictsAlmostEqual(metric.result(), expected_output)
-    self.assertDictsAlmostEqual(metric_ls.result(), expected_output)
+    if name == _GCE_TEMP_SCALING_SPLIT:
+      self.assertAlmostEqual(metric.result()["gce"],
+                             expected_output["gce"])
+      self.assertAllLess(metric.result()["beta"], 0)
+      self.assertAlmostEqual(metric_ls.result()["gce"],
+                             expected_output["gce"])
+      self.assertAllLess(metric_ls.result()["beta"], 0)
+    else:
+      self.assertDictsAlmostEqual(metric.result(), expected_output)
+      self.assertDictsAlmostEqual(metric_ls.result(), expected_output)
 
 
 class IsotonicRegressionTest(tf.test.TestCase):
@@ -238,10 +261,12 @@ class IsotonicRegressionTest(tf.test.TestCase):
     ir.fit(fit_predictions, fit_labels)
     calibrated_predictions = ir.scale(scale_predictions)
 
-    # Test calibration error should go down
-    self.assertLess(
-        um.numpy.ece(scale_labels, calibrated_predictions),
-        um.numpy.ece(scale_labels, scale_predictions))
+    # Test calibration error should go down.
+    ece_calibrated = rm.metrics.ExpectedCalibrationError()
+    ece_calibrated.add_batch(calibrated_predictions, label=scale_labels)
+    ece_scale = rm.metrics.ExpectedCalibrationError()
+    ece_scale.add_batch(scale_predictions, label=scale_labels)
+    self.assertLess(ece_calibrated.result()["ece"], ece_scale.result()["ece"])
 
 
 class CRPSTest(tf.test.TestCase):
@@ -876,6 +901,48 @@ class GeneralCalibrationErrorTest(parameterized.TestCase, tf.test.TestCase):
     bin_assign = rm.metrics.uncertainty._ew_monotonic_sweep(
         probs.max(axis=1), labels)
     self.assertListEqual(bin_assign.tolist(), [0, 0, 1, 1, 1])
+
+
+class OracleCollaborativeAccuracyTest(parameterized.TestCase, tf.test.TestCase):
+
+  def test_oracle_collaborative_accuracy(self):
+    num_bins = 10
+    fraction = 0.4
+    pred_probs = np.array([0.51, 0.45, 0.39, 0.66, 0.68, 0.29, 0.81, 0.85])
+    # max_pred_probs: [0.51, 0.55, 0.61, 0.66, 0.68, 0.71, 0.81, 0.85]
+    # pred_class: [1, 0, 0, 1, 1, 0, 1, 1]
+    labels = np.array([0., 0., 0., 1., 0., 1., 1., 1.])
+    # Bins for the max predicted probabilities are (0, 0.1), [0.1, 0.2), ...,
+    # [0.9, 1) and are numbered starting at zero.
+    bin_counts = np.array([0, 0, 0, 0, 0, 2, 3, 1, 2, 0])
+    bin_correct_sums = np.array([0, 0, 0, 0, 0, 1, 2, 0, 2, 0])
+    bin_prob_sums = np.array(
+        [0, 0, 0, 0, 0, 0.51 + 0.55, 0.61 + 0.66 + 0.68, 0.71, 0.81 + 0.85, 0])
+    # `(3 - 1)` refers to the rest examples in this bin
+    # (minus the examples sent to the moderators), while `2/3` is
+    # the accuracy in this bin.
+    bin_collab_correct_sums = np.array(
+        [0, 0, 0, 0, 0, 2, 1 * 1.0 + (3 - 1) * (2 / 3), 0, 2, 0])
+
+    correct_acc = np.sum(bin_collab_correct_sums) / np.sum(bin_counts)
+
+    metric = rm.metrics.uncertainty._KerasOracleCollaborativeAccuracyMetric(
+        fraction, num_bins, name="collab_acc", dtype=tf.float64)
+
+    acc1 = metric(labels, pred_probs)
+    self.assertAllClose(acc1, correct_acc)
+
+    actual_bin_counts = tf.convert_to_tensor(metric.counts)
+    actual_bin_correct_sums = tf.convert_to_tensor(metric.correct_sums)
+    actual_bin_prob_sums = tf.convert_to_tensor(metric.prob_sums)
+    actual_bin_bin_collab_correct_sums = tf.convert_to_tensor(
+        metric.collab_correct_sums)
+
+    self.assertAllEqual(bin_counts, actual_bin_counts)
+    self.assertAllEqual(bin_correct_sums, actual_bin_correct_sums)
+    self.assertAllClose(bin_prob_sums, actual_bin_prob_sums)
+    self.assertAllClose(bin_collab_correct_sums,
+                        actual_bin_bin_collab_correct_sums)
 
 
 if __name__ == "__main__":

@@ -89,7 +89,8 @@ class TFDSDataset(base.Dataset):
     }
     return features
 
-  def load(self, preprocess_fn: Optional[PreprocessFn]) -> tf.data.Dataset:
+  def load(self,
+           preprocess_fn: Optional[PreprocessFn] = None) -> tf.data.Dataset:
     if not preprocess_fn:
       preprocess_fn = self._default_preprocess_fn
 

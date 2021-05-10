@@ -28,7 +28,7 @@ import warnings
 import edward2 as ed
 import numpy as np
 import tensorflow as tf
-from uncertainty_baselines.baselines.imagenet import utils
+import uncertainty_baselines as ub
 
 
 def create(model_dir: str,
@@ -128,7 +128,7 @@ def create(model_dir: str,
 
   if dataset == "imagenet":
     def preprocess_fn(features):
-      features["image"] = utils.preprocess_for_eval(
+      features["image"] = ub.datasets.resnet_preprocessing.preprocess_for_eval(
           features["image"], use_bfloat16=use_bfloat16)
       return features
   elif dataset == "cifar" and use_bfloat16:

@@ -202,6 +202,105 @@ class ExpectedCalibrationError(metrics_base.KerasMetric):
         use_dataset_labelset=use_dataset_labelset)
 
 
+class _KerasOracleCollaborativeAccuracyMetric(_KerasECEMetric):
+  """Oracle Collaborative Accuracy."""
+
+  def __init__(self, fraction=0.01, num_bins=100, name=None, dtype=None):
+    """Constructs an expected collaborative accuracy metric.
+
+    Args:
+      fraction: the fraction of total examples to send to moderators.
+      num_bins: Number of bins to maintain over the interval [0, 1].
+      name: Name of this metric.
+      dtype: Data type.
+    """
+    super(_KerasOracleCollaborativeAccuracyMetric, self).__init__(
+        num_bins, name, dtype)
+    self.fraction = fraction
+    self.collab_correct_sums = self.add_weight(
+        "collab_correct_sums",
+        shape=(num_bins,),
+        initializer=tf.zeros_initializer)
+
+  def result(self):
+    """Computes the expected calibration error."""
+    num_total_example = tf.reduce_sum(self.counts)
+    num_oracle_examples = tf.cast(
+        int(num_total_example * self.fraction), self.dtype)
+    # TODO(lzi): compute the expected number of accurate predictions
+    collab_correct_sums = []
+    num_oracle_examples_so_far = 0.0
+    for i in range(self.num_bins):
+      cur_bin_counts = self.counts[i]
+      cur_bin_num_correct = self.correct_sums[i]
+      if num_oracle_examples_so_far + cur_bin_counts <= num_oracle_examples:
+        # Send all examples in the current bin to the oracle.
+        cur_bin_num_correct = cur_bin_counts
+        num_oracle_examples_so_far += cur_bin_num_correct
+      elif num_oracle_examples_so_far < num_oracle_examples:
+        # Send num_correct_oracle examples in the current bin to oracle,
+        # and have model to predict the rest.
+        cur_bin_accuracy = cur_bin_num_correct / cur_bin_counts
+        num_correct_oracle = tf.cast(
+            num_oracle_examples - num_oracle_examples_so_far, self.dtype)
+        num_correct_model = (cur_bin_counts -
+                             num_correct_oracle) * cur_bin_accuracy
+        cur_bin_num_correct = num_correct_oracle + num_correct_model
+        num_oracle_examples_so_far = num_oracle_examples
+
+      collab_correct_sums.append(cur_bin_num_correct)
+
+    self.collab_correct_sums = tf.stack(collab_correct_sums)
+
+    non_empty = tf.math.not_equal(self.counts, 0)
+    counts = tf.boolean_mask(self.counts, non_empty)
+    collab_correct_sums = tf.boolean_mask(self.collab_correct_sums, non_empty)
+
+    return tf.reduce_sum(collab_correct_sums) / tf.reduce_sum(counts)
+
+
+@metrics_base.registry.register("oracle_collaborative")
+class OracleCollaborativeAccuracy(metrics_base.KerasMetric):
+  """Oracle Collaborative Accuracy measures for probabilistic predictions.
+
+  Oracle Collaborative Accuracy measures the usefulness of model robustness
+  scores in facilitating human-computer collaboration (e.g., between a neural
+  model and an "oracle" human moderator in moderating online toxic comments).
+
+  The idea is that given a large amount of testing examples, the model will
+  first generate predictions for all examples, and then send a certain
+  percentage of examples that it is not confident about to the human moderators,
+  whom we assume can label those examples correctly.
+
+  The goal of this metric is to understand, under capacity constraints on the
+  human moderator (e.g., the model is only allowed to send 0.1% of total
+  examples to humans), how well the model can collaborate with the human to
+  achieve the highest overall accuracy. In this way, the metric attempts to
+  quantify the behavior of the full model-moderator system rather than of the
+  model alone.
+
+  A model that collaborates with a human oracle well should not be accurate, but
+  also capable of quantifying its robustness well (i.e., its robustness should
+  be calibrated such that robustness ≅ model accuracy).
+  """
+
+  def __init__(
+      self,
+      dataset_info=None,
+      use_dataset_labelset=False,
+      fraction=0.01,
+      num_bins=100):
+    metric = _KerasOracleCollaborativeAccuracyMetric(
+        fraction=fraction, num_bins=num_bins)
+    super().__init__(
+        dataset_info,
+        metric,
+        "oracle_collaborative",
+        take_argmax=False,
+        one_hot=False,
+        use_dataset_labelset=use_dataset_labelset)
+
+
 @metrics_base.registry.register("nll")
 class NegativeLogLikelihood(metrics_base.KerasMetric):
   r"""Multi-class negative log likelihood.
@@ -582,7 +681,7 @@ class _GeneralCalibrationErrorMetric:
   def result(self):
     return self.calibration_error
 
-  def reset_state(self):
+  def reset_states(self):
     self.calibration_error = None
 
 
@@ -595,7 +694,11 @@ class GeneralCalibrationError(metrics_base.FullBatchMetric):
   the l1 or l2 norm. Can function as ECE, SCE, RMSCE, and more. For
   definitions of most of these terms, see [1].
 
-  The metric returns a dict with a single key "gce".
+  The metric returns a dict with keys:
+    * "gce":  General Calibration Error. This is returned for all
+        recalibration_method values, including None.
+    * "beta": Optimal beta scaling, returned only for the temperature_scaling
+        recalibration method
 
   Note that we also implement the following metrics by specializing this class
   and fixing some of its parameters:
@@ -764,6 +867,8 @@ class GeneralCalibrationError(metrics_base.FullBatchMetric):
     )
     m.update_state(np.asarray(self._eval_labels),
                    np.asarray(self._eval_predictions))
+    if self._recalibration_method == "temperature_scaling":
+      return {"gce": m.result(), "beta": beta}
     return {"gce": m.result()}
 
   def shuffle_and_split_data(self) -> None:

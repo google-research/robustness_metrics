@@ -3,7 +3,6 @@ clu
 pandas
 scikit-learn
 tabulate
-tensorflow>=2.0.0
+tf-nightly
 tensorflow_datasets
 tensorflow_hub
-uncertainty_metrics[numpy,tensorflow]

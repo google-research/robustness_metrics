@@ -106,6 +106,16 @@ class AccuracyTest(tf.test.TestCase):
         label=tf.constant([1, 0, 0]))  # Last prediction is incorrect.
     self.assertDictsAlmostEqual(metric.result(), {"accuracy": 2 / 3.})
 
+  def test_add_batch_labelset(self):
+    metric = rm.metrics.get(
+        "accuracy(use_dataset_labelset=True)",
+        rm.datasets.base.DatasetInfo(num_classes=3, appearing_classes=[0, 1]))
+
+    metric.add_batch(
+        tf.constant([[.1, .2, .7], [.2, .5, .3], [.3, .2, .5], [0, 0.1, 0.9]]),
+        label=tf.constant([1, 1, 0, 0]))  # Last prediction is incorrect.
+    self.assertDictsAlmostEqual(metric.result(), {"accuracy": 0.75})
+
   def test_multiple_predictions_labelset(self):
     metric = rm.metrics.get(
         "accuracy(use_dataset_labelset=True)",
@@ -352,6 +362,30 @@ class MultiLabelTopKTest(tf.test.TestCase):
         metadata={"labels_multi_hot": [1, 1, 0], "element_id": 1})
     # The average of the above predictions is 0.5.
     self.assertDictsAlmostEqual(metric.result(), {"accuracy@1": 0.5})
+
+  def test_top1_labelset(self):
+    dataset_info = rm.datasets.base.DatasetInfo(
+        num_classes=3, appearing_classes=[0, 1])
+    metric = rm.metrics.get(
+        "accuracy_top_k(use_dataset_labelset=True, top_k=1)",
+        dataset_info=dataset_info)
+    # Average prediction is [.45, .55, .0], so 0/1 are correct.
+    metric.add_predictions(
+        rm.common.types.ModelPredictions(
+            predictions=[[.2, .8, .0], [.7, .3, .0]]),
+        metadata={"labels_multi_hot": [1, 0, 0], "element_id": 1})
+    self.assertDictsAlmostEqual(metric.result(), {"accuracy@1": 0})
+    # The third position gets ignored, so these are both correct.
+    metric.add_predictions(
+        rm.common.types.ModelPredictions(
+            predictions=[[.02, .08, .9], [.07, .03, .9]]),
+        metadata={"labels_multi_hot": [1, 1, 0], "element_id": 1})
+    metric.add_predictions(
+        rm.common.types.ModelPredictions(
+            predictions=[[.02, .08, .9], [.07, .03, .9]]),
+        metadata={"labels_multi_hot": [0, 1, 0], "element_id": 1})
+    # The average of the above predictions is 0.5.
+    self.assertDictsAlmostEqual(metric.result(), {"accuracy@1": 2 / 3})
 
   def test_single_label_top2(self):
     dataset_info = rm.datasets.base.DatasetInfo(num_classes=3)

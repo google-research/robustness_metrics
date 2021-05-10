@@ -37,6 +37,7 @@ from typing import Text, Type
 
 from robustness_metrics.common import types
 from robustness_metrics.metrics import base
+from robustness_metrics.metrics import serialization
 from robustness_metrics.metrics import timing
 from robustness_metrics.metrics import uncertainty
 from robustness_metrics.metrics.base import Accuracy
@@ -47,6 +48,10 @@ from robustness_metrics.metrics.base import Metric
 from robustness_metrics.metrics.base import Precision
 from robustness_metrics.metrics.base import registry
 from robustness_metrics.metrics.base import TopKAccuracy
+from robustness_metrics.metrics.diversity import AveragePairwiseDiversity
+from robustness_metrics.metrics.information_criteria import EnsembleCrossEntropy
+from robustness_metrics.metrics.information_criteria import GibbsCrossEntropy
+from robustness_metrics.metrics.serialization import Serializer
 from robustness_metrics.metrics.synthetic import Synthetic
 from robustness_metrics.metrics.timing import TimingStatsMetric
 from robustness_metrics.metrics.uncertainty import AdaptiveCalibrationError
@@ -58,6 +63,7 @@ from robustness_metrics.metrics.uncertainty import GeneralCalibrationError
 from robustness_metrics.metrics.uncertainty import IsotonicRegression
 from robustness_metrics.metrics.uncertainty import MonotonicSweepCalibrationError
 from robustness_metrics.metrics.uncertainty import NegativeLogLikelihood
+from robustness_metrics.metrics.uncertainty import OracleCollaborativeAccuracy
 from robustness_metrics.metrics.uncertainty import RootMeanSquaredCalibrationError
 from robustness_metrics.metrics.uncertainty import SemiParametricCalibrationError
 from robustness_metrics.metrics.uncertainty import SemiParametricCalibrationErrorConfidenceInterval
@@ -114,38 +120,43 @@ def add_batch(metric: base.Metric, predictions, **metadata):
 
 
 __all__ = [
-    "get",
-    "add_batch",
-    "base",
-    "timing",
-    "uncertainty",
     "Accuracy",
-    "AggregatedAccuracy",
-    "FullBatchMetric",
-    "KerasMetric",
-    "Metric",
-    "Precision",
-    "registry",
-    "TopKAccuracy",
-    "ObjectNetAccuracy",
-    "ObjectNetGCE",
-    "ObjectNetMetric",
-    "ImageNetVidRobust",
-    "Synthetic",
-    "TimingStatsMetric",
     "AdaptiveCalibrationError",
+    "AggregatedAccuracy",
+    "AveragePairwiseDiversity",
     "Brier",
     "BrierDecomposition",
     "CRPSSCore",
+    "EnsembleCrossEntropy",
     "ExpectedCalibrationError",
+    "FullBatchMetric",
     "GeneralCalibrationError",
+    "GibbsCrossEntropy",
+    "ImageNetVidRobust",
     "IsotonicRegression",
+    "KerasMetric",
+    "Metric",
     "MonotonicSweepCalibrationError",
     "NegativeLogLikelihood",
+    "ObjectNetAccuracy",
+    "ObjectNetGCE",
+    "ObjectNetMetric",
+    "Precision",
     "RootMeanSquaredCalibrationError",
     "SemiParametricCalibrationError",
     "SemiParametricCalibrationErrorConfidenceInterval",
+    "Serializer",
     "StaticCalibrationError",
+    "Synthetic",
     "TemperatureScaling",
     "ThresholdedAdaptiveCalibrationError",
+    "TimingStatsMetric",
+    "TopKAccuracy",
+    "add_batch",
+    "base",
+    "get",
+    "registry",
+    "serialization",
+    "timing",
+    "uncertainty",
 ]

@@ -16,7 +16,6 @@
 # Lint as: python3
 """Tools useful for all executable scripts."""
 import collections
-import functools
 import importlib
 import math
 import time
@@ -247,8 +246,14 @@ def compute_predictions_jax(
     else:
       return np.asarray(array)
 
+  def pad_strings_in_metadata(features):
+    """Only padding of the strings subject to a gather operation."""
+    features["metadata"] = tf.nest.map_structure(pad_strings,
+                                                 features["metadata"])
+    return features
+
   dataset = clu_dd.pad_dataset(
-      dataset.map(functools.partial(tf.nest.map_structure, pad_strings)),
+      dataset.map(pad_strings_in_metadata),
       batch_dims=[batch_size],
       pad_up_to_batches=total_batches_padded,
       cardinality=None,  # It will be inferred from the datset.

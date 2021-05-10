@@ -32,10 +32,9 @@ setup(
         "pandas",
         "scikit-learn",
         "tabulate",
-        "tensorflow>=2.0.0",
         "tensorflow_datasets",
         "tensorflow_hub",
-        "uncertainty_metrics[numpy,tensorflow]",
+        "tf-nightly",
     ],
     extras_require={},
     classifiers=[
