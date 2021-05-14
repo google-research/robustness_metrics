@@ -35,6 +35,7 @@ setup(
         "tensorflow_datasets",
         "tensorflow_hub",
         "tf-nightly",
+        "tfp-nightly",
     ],
     extras_require={},
     classifiers=[
