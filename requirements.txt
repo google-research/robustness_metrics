@@ -4,5 +4,6 @@ pandas
 scikit-learn
 tabulate
 tf-nightly
+tfp-nightly
 tensorflow_datasets
 tensorflow_hub
