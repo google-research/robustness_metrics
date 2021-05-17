@@ -139,8 +139,6 @@ class ImagenetVariantsReport(base.Report):
         value, = list(metric_results.values())
       elif metric_name == "timing":
         value = metric_results["mean"]
-      elif metric_name == "beta_scaling":
-        value = 0.0  # Dummy.
       else:
         raise ValueError(
             f"Must specify which key to use: {list(metric_results.keys())}")
@@ -225,7 +223,7 @@ class ImagenetRescalingReport(ImagenetVariantsReport):
 
   @property
   def required_measurements(self):
-    rescaling_methods = ["temperature_scaling", "beta_scaling"]
+    rescaling_methods = ["temperature_scaling"]
     for rescaling_method in rescaling_methods:
       metric = f"{rescaling_method}"
       yield base.MeasurementSpec("imagenet(split='validation[:20%]')", metric)
