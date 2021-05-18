@@ -46,6 +46,8 @@ class Serializer(metrics_base.Metric):
         tf.convert_to_tensor(model_predictions.predictions, dtype=tf.float32))
     serialized_metadata = {}
     for key, value in metadata.items():
+      if isinstance(value, tf.Tensor):
+        value = value.numpy()
       if hasattr(value, "dtype") and value.dtype == np.int:
         if isinstance(value, np.ndarray):
           value = [int(x) for x in value.tolist()]
@@ -56,6 +58,9 @@ class Serializer(metrics_base.Metric):
           value = [float(x) for x in value.tolist()]
         else:
           value = float(value)
+      # Convert bytes (e.g., ImageNetVidRobust's video_frame_id).
+      if isinstance(value, bytes):
+        value = value.decode("utf-8")
       serialized_metadata[key] = value
     serialized_metadata = json.dumps(serialized_metadata).encode()
     tf_example = tf.train.Example(features=tf.train.Features(feature={
@@ -98,4 +103,11 @@ class Serializer(metrics_base.Metric):
       prediction = types.ModelPredictions(
           predictions=example["predictions"].numpy())
       metadata = json.loads(example["metadata"].numpy())
+      # Apply a special case to lists of size 1. We need to adjust for the fact
+      # that int-casting a Tensor with shape [1] works (this may be the original
+      # element), but int-casting a list of size 1 (this may be the saved
+      # element) doesn't work.
+      for key, value in metadata.items():
+        if isinstance(value, list) and len(value) == 1:
+          metadata[key] = value[0]
       yield prediction, metadata

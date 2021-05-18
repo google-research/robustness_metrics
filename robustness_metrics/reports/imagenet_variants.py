@@ -62,11 +62,12 @@ class ImagenetVariantsReport(base.Report):
 
   This report contains the following ImageNet variants:
     * imagenet
-    * imagenet_a,
-    * imagenet_v2 (all variants)
+    * imagenet_a
+    * imagenet_v2/matched_frequency
     * imagenet_c (all variants)
-  For each dataset, we compute accuracy, expected calibration
-  error (ece), log-likelihood, Brier, timing, and adaptive ECE.
+
+  For each dataset, we compute accuracy, expected calibration error,
+  log-likelihood, Brier.
   """
 
   def __init__(self):
@@ -77,7 +78,7 @@ class ImagenetVariantsReport(base.Report):
 
   def _yield_metrics_to_evaluate(self, use_dataset_labelset=None):
     """Yields metrics to be evaluated."""
-    metrics = ["accuracy", "nll", "brier"]
+    metrics = ["accuracy", "ece", "nll", "brier"]
     if use_dataset_labelset is not None:
       metrics = [f"{metric}(use_dataset_labelset={use_dataset_labelset})"
                  for metric in metrics]
