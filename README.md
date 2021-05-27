@@ -113,3 +113,17 @@ model, and `models/vgg.py` is in PyTorch), please set the flag `--tf_on_cpu`.
 
 To see results, look at the printed output.
 
+
+# Citing Robustness-Metrics
+
+To cite this repository:
+
+```
+@software{djolonga2020robustness,
+  author = {Josip Djolonga and Minderer Matthias and Nado Zack and Nixon Jeremy and Romijnders Rob and Dustin Tran and Mario Lucic},
+  title = {{R}obustness {M}etrics},
+  url = {https://github.com/google-research/robustness_metrics},
+  version = {0.0.1},
+  year = {2020},
+}
+```
