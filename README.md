@@ -120,7 +120,7 @@ To cite this repository:
 
 ```
 @software{djolonga2020robustness,
-  author = {Josip Djolonga and Minderer Matthias and Nado Zack and Nixon Jeremy and Romijnders Rob and Dustin Tran and Mario Lucic},
+  author = {Josip Djolonga and Matthias Minderer and Zachary Nado and Jeremy Nixon and Rob Romijnders and Dustin Tran and Mario Lucic},
   title = {{R}obustness {M}etrics},
   url = {https://github.com/google-research/robustness_metrics},
   version = {0.0.1},
