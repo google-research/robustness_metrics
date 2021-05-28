@@ -771,7 +771,7 @@ class GeneralCalibrationError(metrics_base.FullBatchMetric):
       datapoints_per_bin: Optional[int] = None,
       fit_on_percent: float = 100.0,
       recalibration_method: Optional[str] = None,
-      seed: int = None,
+      seed: Optional[int] = None,
       use_dataset_labelset: bool = False,
       pickle_path: str = DEFAULT_PICKLE_PATH,
   ):
