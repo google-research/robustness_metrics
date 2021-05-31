@@ -118,7 +118,7 @@ To see results, look at the printed output.
 
 If you'd like to cite Robustness Metrics, use the following BibTeX entry.
 
-> J. Djolonga, M. Minderer, Z. Nado, J. Nixon, R. Romijnders, D. Tran, and M.
+> J. Djolonga, F. Hubis, M. Minderer, Z. Nado, J. Nixon, R. Romijnders, D. Tran, and M.
 > Lucic.
 > [Robustness Metrics](https://github.com/google-research/robustness_metrics),
 > 2020.
