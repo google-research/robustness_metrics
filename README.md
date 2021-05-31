@@ -125,7 +125,7 @@ If you'd like to cite Robustness Metrics, use the following BibTeX entry.
 
 ```
 @software{djolonga2020robustness,
-  author = {Josip Djolonga and Matthias Minderer and Zachary Nado and Jeremy Nixon and Rob Romijnders and Dustin Tran and Mario Lucic},
+  author = {Josip Djolonga and Frances Hubis and Matthias Minderer and Zachary Nado and Jeremy Nixon and Rob Romijnders and Dustin Tran and Mario Lucic},
   title = {{R}obustness {M}etrics},
   url = {https://github.com/google-research/robustness_metrics},
   version = {0.0.1},
