@@ -1,7 +1,9 @@
 absl-py
 clu
+matplotlib>=3.3
 pandas
 scikit-learn
+seaborn
 tabulate
 tf-nightly
 tfp-nightly
