@@ -905,13 +905,20 @@ class GeneralCalibrationErrorTest(parameterized.TestCase, tf.test.TestCase):
 
 class OracleCollaborativeAccuracyTest(parameterized.TestCase, tf.test.TestCase):
 
-  def test_oracle_collaborative_accuracy(self):
-    num_bins = 10
-    fraction = 0.4
-    pred_probs = np.array([0.51, 0.45, 0.39, 0.66, 0.68, 0.29, 0.81, 0.85])
+  def setUp(self):
+    super().setUp()
+
+    self.num_bins = 10
+    self.fraction = 0.4
+    self.dtype = "float32"
+
+    self.pred_probs = np.array([0.51, 0.45, 0.39, 0.66, 0.68, 0.29, 0.81, 0.85],
+                               dtype=self.dtype)
     # max_pred_probs: [0.51, 0.55, 0.61, 0.66, 0.68, 0.71, 0.81, 0.85]
     # pred_class: [1, 0, 0, 1, 1, 0, 1, 1]
-    labels = np.array([0., 0., 0., 1., 0., 1., 1., 1.])
+    self.labels = np.array([0., 0., 0., 1., 0., 1., 1., 1.], dtype=self.dtype)
+
+  def test_oracle_collaborative_accuracy(self):
     # Bins for the max predicted probabilities are (0, 0.1), [0.1, 0.2), ...,
     # [0.9, 1) and are numbered starting at zero.
     bin_counts = np.array([0, 0, 0, 0, 0, 2, 3, 1, 2, 0])
@@ -927,10 +934,9 @@ class OracleCollaborativeAccuracyTest(parameterized.TestCase, tf.test.TestCase):
     correct_acc = np.sum(bin_collab_correct_sums) / np.sum(bin_counts)
 
     metric = rm.metrics.uncertainty._KerasOracleCollaborativeAccuracyMetric(
-        fraction, num_bins, name="collab_acc", dtype=tf.float64)
+        self.fraction, self.num_bins, name="collab_acc", dtype=tf.float64)
 
-    acc1 = metric(labels, pred_probs)
-    self.assertAllClose(acc1, correct_acc)
+    acc = metric(self.labels, self.pred_probs)
 
     actual_bin_counts = tf.convert_to_tensor(metric.counts)
     actual_bin_correct_sums = tf.convert_to_tensor(metric.correct_sums)
@@ -943,6 +949,67 @@ class OracleCollaborativeAccuracyTest(parameterized.TestCase, tf.test.TestCase):
     self.assertAllClose(bin_prob_sums, actual_bin_prob_sums)
     self.assertAllClose(bin_collab_correct_sums,
                         actual_bin_bin_collab_correct_sums)
+
+    self.assertAllClose(acc, correct_acc)
+
+  def test_wrapped_oracle_collaborative_accuracy(self):
+    # Bins for the max predicted probabilities are (0, 0.1), [0.1, 0.2), ...,
+    # [0.9, 1) and are numbered starting at zero.
+    bin_counts = np.array([0, 0, 0, 0, 0, 2, 3, 1, 2, 0])
+    # `(3 - 1)` refers to the rest examples in this bin
+    # (minus the examples sent to the moderators), while `2/3` is
+    # the accuracy in this bin.
+    bin_collab_correct_sums = np.array(
+        [0, 0, 0, 0, 0, 2, 1 * 1.0 + (3 - 1) * (2 / 3), 0, 2, 0])
+
+    correct_acc = np.sum(bin_collab_correct_sums) / np.sum(bin_counts)
+
+    wrapped_metric = rm.metrics.uncertainty.OracleCollaborativeAccuracy(
+        fraction=self.fraction, num_bins=self.num_bins)
+
+    wrapped_metric.add_batch(self.pred_probs, label=self.labels)
+    wrapped_metric_acc = wrapped_metric.result()["oracle_collaborative"]
+
+    self.assertAllClose(wrapped_metric_acc, correct_acc)
+
+  def test_wrapped_oracle_collaborative_accuracy_custom_binning_score(self):
+    binning_score = tf.abs(self.pred_probs - 0.5)
+
+    bin_counts = np.array([2, 3, 1, 2, 0, 0, 0, 0, 0, 0], dtype=self.dtype)
+    bin_correct_sums = np.array([1, 2, 0, 2, 0, 0, 0, 0, 0, 0],
+                                dtype=self.dtype)
+    bin_prob_sums = np.array(
+        [0.51 + 0.55, 0.61 + 0.66 + 0.68, 0.71, 0.81 + 0.85, 0, 0, 0, 0, 0, 0],
+        dtype=self.dtype)
+    # `(3 - 1)` refers to the rest examples in this bin
+    # (minus the examples sent to the moderators), while `2/3` is
+    # the accuracy in this bin.
+    bin_collab_correct_sums = np.array(
+        [2, 1 * 1.0 + (3 - 1) * (2 / 3), 0, 2, 0, 0, 0, 0, 0, 0],
+        dtype=self.dtype)
+
+    correct_acc = np.sum(bin_collab_correct_sums) / np.sum(bin_counts)
+
+    metric = rm.metrics.uncertainty.OracleCollaborativeAccuracy(
+        fraction=self.fraction, num_bins=self.num_bins)
+
+    metric.add_batch(
+        self.pred_probs, label=self.labels, custom_binning_score=binning_score)
+    acc = metric.result()["oracle_collaborative"]
+
+    actual_bin_counts = tf.convert_to_tensor(metric._metric.counts)
+    actual_bin_correct_sums = tf.convert_to_tensor(metric._metric.correct_sums)
+    actual_bin_prob_sums = tf.convert_to_tensor(metric._metric.prob_sums)
+    actual_bin_bin_collab_correct_sums = tf.convert_to_tensor(
+        metric._metric.collab_correct_sums)
+
+    self.assertAllEqual(bin_counts, actual_bin_counts)
+    self.assertAllEqual(bin_correct_sums, actual_bin_correct_sums)
+    self.assertAllClose(bin_prob_sums, actual_bin_prob_sums)
+    self.assertAllClose(bin_collab_correct_sums,
+                        actual_bin_bin_collab_correct_sums)
+
+    self.assertAllClose(acc, correct_acc)
 
 
 if __name__ == "__main__":

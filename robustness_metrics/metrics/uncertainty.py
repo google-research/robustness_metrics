@@ -18,11 +18,12 @@
 
 import os
 import pickle
-from typing import Dict, Optional, List, Union
+from typing import Any, Dict, Optional, List, Union
 import warnings
 
 from absl import logging
 import numpy as np
+from robustness_metrics.common import types
 from robustness_metrics.datasets import base as datasets_base
 from robustness_metrics.metrics import base as metrics_base
 import scipy.interpolate
@@ -299,6 +300,105 @@ class OracleCollaborativeAccuracy(metrics_base.KerasMetric):
         take_argmax=False,
         one_hot=False,
         use_dataset_labelset=use_dataset_labelset)
+
+  @tf.function
+  def _add_prediction(self,
+                      predictions,
+                      label,
+                      average_predictions,
+                      custom_binning_score=None):
+    """Feeds the given label and prediction to the underlying Keras metric.
+
+    Args:
+      predictions: The batch of predictions, one for each example in the batch.
+      label: The batch of labels, one for each example in the batch.
+      average_predictions: If set, when multiple predictions are present for
+        a dataset element, they will be averaged before processing.
+      custom_binning_score: (Optional) Custom score to use for binning
+        predictions, one for each example in the batch. If not specified, the
+        default is to bin by predicted probability. The elements of
+        custom_binning_score are expected to all be in [0, 1].
+    """
+    if average_predictions:
+      predictions = tf.reduce_mean(predictions, axis=0, keepdims=True)
+    if self._one_hot:
+      label = tf.one_hot(label, self._num_classes)
+    if self._take_argmax:
+      self._metric.update_state(
+          label,
+          tf.argmax(predictions, axis=-1),
+          custom_binning_score=custom_binning_score)
+    else:
+      self._metric.update_state(
+          label, predictions, custom_binning_score=custom_binning_score)
+
+  def add_predictions(self, model_predictions: types.ModelPredictions,
+                      **metadata) -> None:
+    try:
+      element_id = int(metadata["element_id"])
+      if element_id in self._ids_seen:
+        raise ValueError(
+            "KerasMetric does not support reporting the same id multiple "
+            f"times, but you added element id {element_id} twice.")
+      else:
+        self._ids_seen.add(element_id)
+    except KeyError:
+      pass
+
+    stacked_predictions = np.stack(model_predictions.predictions)
+    if "label" not in metadata:
+      raise ValueError("KerasMetric expects a `label` in the metadata."
+                       f"Available fields are: {metadata.keys()!r}")
+    custom_binning_score = metadata.get("custom_binning_score")
+
+    if self._use_dataset_labelset:
+      # pylint: disable=protected-access
+      predictions, label = metrics_base._map_labelset(stacked_predictions,
+                                                      metadata["label"],
+                                                      self._appearing_classes)
+      # pylint: enable=protected-access
+      self._add_prediction(
+          predictions,
+          label,
+          self._average_predictions,
+          custom_binning_score=custom_binning_score)
+    else:
+      self._add_prediction(
+          stacked_predictions,
+          metadata["label"],
+          self._average_predictions,
+          custom_binning_score=custom_binning_score)
+
+  def add_batch(self, model_predictions,
+                **metadata: Optional[Dict[str, Any]]) -> None:
+    """Adds a batch of predictions for a batch of examples.
+
+    Args:
+      model_predictions: The batch of predictions, one for each example in the
+        batch.
+      **metadata: The batch metadata, possibly including `labels` which is the
+        batch of labels and `custom_binning_score` which is the batch of binning
+        scores (overriding the default behavior of binning by predicted
+        probability), one for each example in the batch.
+    """
+    # Note that even though the labels are really over a batch of predictions,
+    # we use the kwarg "label" to be consistent with the other functions that
+    # use the singular name.
+    self._average_predictions = False
+    label = metadata["label"]
+    custom_binning_score = metadata.get("custom_binning_score")
+    if self._use_dataset_labelset:
+      model_predictions = tf.gather(
+          model_predictions, self._appearing_classes, axis=-1)
+      model_predictions /= tf.math.reduce_sum(
+          model_predictions, axis=-1, keepdims=True)
+      label = tf.convert_to_tensor(
+          [self._appearing_classes.index(x) for x in label])
+    self._add_prediction(
+        predictions=model_predictions,
+        label=label,
+        average_predictions=False,
+        custom_binning_score=custom_binning_score)
 
 
 @metrics_base.registry.register("nll")
@@ -1542,4 +1642,3 @@ class MonotonicSweepCalibrationError(GeneralCalibrationError):
                      norm="l1",
                      num_bins=None,
                      **kwargs)
-
