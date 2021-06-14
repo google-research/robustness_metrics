@@ -55,7 +55,8 @@ class Metric(metaclass=abc.ABCMeta):
 
     Args:
       model_predictions: The predictions that the model made on an element
-        from the dataset.
+        from the dataset. Has an attribute `.predictions` with shape
+        [num_models, ...] where [...] is the shape of a single prediction.
       metadata: The metadata for the example.
     """
 
@@ -65,8 +66,9 @@ class Metric(metaclass=abc.ABCMeta):
     """Adds a batch of predictions for a batch of examples.
 
     Args:
-      model_predictions: The batch of predictions, one for each example in the
-        batch.
+      model_predictions: The batch of prediction. Tensor-like with shape
+        [num_models, batch_size, ...] where [...] is the shape of a single
+        prediction.
       **metadata: The batch metadata, possibly including `labels` which is the
         batch of labels, one for each example in the batch.
     """

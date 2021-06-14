@@ -16,7 +16,7 @@
 """Metrics for model diversity."""
 
 import itertools
-from typing import Dict, Text
+from typing import Any, Dict, Optional, Text
 
 from robustness_metrics.common import types
 from robustness_metrics.metrics import base as metrics_base
@@ -27,19 +27,19 @@ def disagreement(logits_1, logits_2):
   """Disagreement between the predictions of two classifiers."""
   preds_1 = tf.argmax(logits_1, axis=-1, output_type=tf.int32)
   preds_2 = tf.argmax(logits_2, axis=-1, output_type=tf.int32)
-  return tf.reduce_mean(tf.cast(preds_1 != preds_2, tf.float32))
+  return tf.cast(preds_1 != preds_2, tf.float32)
 
 
 def kl_divergence(p, q, clip=False):
   """Generalized KL divergence [1] for unnormalized distributions.
 
   Args:
-    p: tf.Tensor.
-    q: tf.Tensor.
+    p: tf.Tensor of shape [batch_size, num_classes].
+    q: tf.Tensor of shape [batch_size, num_classes].
     clip: bool.
 
   Returns:
-    tf.Tensor of the Kullback-Leibler divergences per example.
+    tf.Tensor of shape [batch_size].
 
   ## References
 
@@ -61,40 +61,117 @@ def cosine_distance(x, y):
   y_norm = tf.reshape(y_norm, (-1, 1))
   normalized_x = x / x_norm
   normalized_y = y / y_norm
-  return tf.reduce_mean(tf.reduce_sum(normalized_x * normalized_y, axis=-1))
+  return tf.reduce_sum(normalized_x * normalized_y, axis=-1)
 
 
+@metrics_base.registry.register('average_pairwise_diversity')
 class AveragePairwiseDiversity(metrics_base.Metric):
-  """Average pairwise distance computation across models."""
+  """Average pairwise diversity of models.
 
-  def __init__(self, dataset_info=None):
+  The metric computes
+
+  ```
+  1/N sum_{n=1}^dataset_size
+      1/num_models**2 sum_{m,m'=1}^num_models div(p_{n, m}, p_{n, m'})
+  ```
+
+  for each diversity measure `div`. Given a batch, the metric computes
+
+  ```
+  sum_{b=1}^batch_size
+      1/num_models**2 sum_{m,m'=1}^num_models div(p_{b, m}, p_{b, m'}).
+  ```
+
+  This quantity is accumulated across each call to `add_batch()`. `result()`
+  then averages the quantity by the total number of data points.
+  """
+
+  def __init__(self, dataset_info=None, normalize_disagreement=False):
+    """Initializes the metric.
+
+    Args:
+      dataset_info: The DatasetInfo object associated with the dataset. Unused.
+      normalize_disagreement: Whether to normalize the average disagreement by
+        classification error. Normalizing disagreement adjusts for the fact that
+        inaccurate models have a higher potential of disagreeing because wrong
+        predictions may be more random.
+    """
     del dataset_info
-    self._probs = []
-    self._num_models = 0
-    self._error = 0.
+    self._normalize_disagreement = normalize_disagreement
+    self._accuracy = None
+    if self._normalize_disagreement:
+      self._accuracy = metrics_base.Accuracy()
+    self._dataset_size = tf.Variable(0,
+                                     trainable=False,
+                                     aggregation=tf.VariableAggregation.SUM)
+    self._disagreement = tf.Variable(0.,
+                                     trainable=False,
+                                     aggregation=tf.VariableAggregation.SUM)
+    self._kl_divergence = tf.Variable(0.,
+                                      trainable=False,
+                                      aggregation=tf.VariableAggregation.SUM)
+    self._cosine_distance = tf.Variable(0.,
+                                        trainable=False,
+                                        aggregation=tf.VariableAggregation.SUM)
 
   def add_predictions(self,
                       model_predictions: types.ModelPredictions,
                       metadata: types.Features) -> None:
-    self.add_batch(
-        model_predictions.predictions,
-        num_models=metadata['num_models'],
-        error=metadata['error'])
+    # To update the metric on individual data points, expand the inputs to have
+    # batch size 1 and call `add_batch`.
+    batch_predictions = tf.expand_dims(model_predictions.predictions, axis=1)
+    if 'label' in metadata:
+      metadata['label'] = tf.expand_dims(metadata['label'], axis=1)
+    self.add_batch(batch_predictions, **metadata)
 
-  def add_batch(
-      self, model_predictions, *, num_models: int = 0, error=None) -> None:
+  def add_batch(self,
+                model_predictions,
+                **metadata: Optional[Dict[Text, Any]]) -> None:
     """Adds a batch of predictions for a batch of examples.
 
     Args:
-      model_predictions: The batch of probabilities, one for each example in the
-        batch.
-      num_models: The number of models in the ensemble.
-      error: The error used to normalize the average disagreement.
+      model_predictions: Tensor-like of shape [num_models, batch_size,
+        num_classes] representing the multiple predictions, one for each example
+        in the batch.
+      **metadata: Metadata of model predictions. Only necessary if
+        normalize_disagreement is True.
     """
-    self._probs.append(model_predictions)
-    self._num_models += num_models
-    if error is not None:
-      self._error += error
+    model_predictions = tf.convert_to_tensor(model_predictions)
+    num_models = model_predictions.shape[0]
+    batch_size = tf.shape(model_predictions)[1]
+    batch_disagreement = []
+    batch_kl_divergence = []
+    batch_cosine_distance = []
+    for pair in list(itertools.combinations(range(num_models), 2)):
+      probs_1 = model_predictions[pair[0]]
+      probs_2 = model_predictions[pair[1]]
+      batch_disagreement.append(
+          tf.reduce_sum(disagreement(probs_1, probs_2)))
+      batch_kl_divergence.append(
+          tf.reduce_sum(kl_divergence(probs_1, probs_2)))
+      batch_cosine_distance.append(
+          tf.reduce_sum(cosine_distance(probs_1, probs_2)))
+
+    # TODO(ghassen): we could also return max and min pairwise metrics.
+    batch_disagreement = tf.reduce_mean(batch_disagreement)
+    batch_kl_divergence = tf.reduce_mean(batch_kl_divergence)
+    batch_cosine_distance = tf.reduce_mean(batch_cosine_distance)
+
+    self._dataset_size.assign_add(batch_size)
+    self._disagreement.assign_add(batch_disagreement)
+    self._kl_divergence.assign_add(batch_kl_divergence)
+    self._cosine_distance.assign_add(batch_cosine_distance)
+    if self._normalize_disagreement:
+      ensemble_predictions = tf.reduce_mean(model_predictions, axis=0)
+      self._accuracy.add_batch(ensemble_predictions, **metadata)
+
+  def reset_states(self):
+    if self._normalize_disagreement:
+      self._accuracy.reset_states()
+    self._dataset_size.assign(0)
+    self._disagreement.assign(0.)
+    self._kl_divergence.assign(0.)
+    self._cosine_distance.assign(0.)
 
   def result(self) -> Dict[Text, float]:
     """Computes the results from all the predictions it has seen so far.
@@ -102,35 +179,17 @@ class AveragePairwiseDiversity(metrics_base.Metric):
     Returns:
       A dictionary mapping the name of each computed metric to its value.
     """
-    if self._num_models == 0:
-      raise ValueError('Must call add_batch(...) before result().')
+    dataset_size = tf.cast(self._dataset_size, self._disagreement.dtype)
+    avg_disagreement = self._disagreement / dataset_size
+    if self._normalize_disagreement:
+      classification_error = 1. - self._accuracy.result['accuracy']
+      avg_disagreement /= classification_error + tf.keras.backend.epsilon()
 
-    self._probs = tf.concat(self._probs, axis=0)
-    if self._probs.shape[0] != self._num_models:
-      raise ValueError(
-          'The number of models {0} does not match the probs length {1}'.format(
-              self._num_models, self._probs.shape[0]))
-    pairwise_disagreement = []
-    pairwise_kl_divergence = []
-    pairwise_cosine_distance = []
-    for pair in list(itertools.combinations(range(self._num_models), 2)):
-      probs_1 = self._probs[pair[0]]
-      probs_2 = self._probs[pair[1]]
-      pairwise_disagreement.append(disagreement(probs_1, probs_2))
-      pairwise_kl_divergence.append(
-          tf.reduce_mean(kl_divergence(probs_1, probs_2)))
-      pairwise_cosine_distance.append(cosine_distance(probs_1, probs_2))
-
-    # TODO(ghassen): we could also return max and min pairwise metrics.
-    average_disagreement = tf.reduce_mean(tf.stack(pairwise_disagreement))
-    if self._error is not None:
-      average_disagreement /= (self._error + tf.keras.backend.epsilon())
-    average_kl_divergence = tf.reduce_mean(tf.stack(pairwise_kl_divergence))
-    average_cosine_distance = tf.reduce_mean(tf.stack(pairwise_cosine_distance))
-
+    avg_kl = self._kl_divergence / dataset_size
+    avg_cosine_distance = self._cosine_distance / dataset_size
     return {
-        'disagreement': average_disagreement,
-        'average_kl': average_kl_divergence,
-        'cosine_similarity': average_cosine_distance
+        'disagreement': avg_disagreement,
+        'average_kl': avg_kl,
+        'cosine_similarity': avg_cosine_distance,
     }
 

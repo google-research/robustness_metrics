@@ -38,12 +38,19 @@ class DiversityTest(parameterized.TestCase, tf.test.TestCase):
 
   def testAveragePairwiseDiversity(self):
     num_models = 3
-    batch_size = 2
     num_classes = 5
+    diversity = rm.metrics.AveragePairwiseDiversity()
+
+    batch_size = 2
     logits = tf.random.normal([num_models, batch_size, num_classes])
     probs = tf.nn.softmax(logits)
-    diversity = rm.metrics.AveragePairwiseDiversity()
-    diversity.add_batch(probs, num_models=num_models)
+    diversity.add_batch(probs)
+
+    batch_size = 3
+    logits = tf.random.normal([num_models, batch_size, num_classes])
+    probs = tf.nn.softmax(logits)
+    diversity.add_batch(probs)
+
     results = diversity.result()
     self.assertLen(results, 3)
     self.assertEqual(results['disagreement'].shape, [])
