@@ -182,7 +182,7 @@ class AveragePairwiseDiversity(metrics_base.Metric):
     dataset_size = tf.cast(self._dataset_size, self._disagreement.dtype)
     avg_disagreement = self._disagreement / dataset_size
     if self._normalize_disagreement:
-      classification_error = 1. - self._accuracy.result['accuracy']
+      classification_error = 1. - self._accuracy.result()['accuracy']
       avg_disagreement /= classification_error + tf.keras.backend.epsilon()
 
     avg_kl = self._kl_divergence / dataset_size
