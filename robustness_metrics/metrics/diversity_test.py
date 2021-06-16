@@ -53,9 +53,9 @@ class DiversityTest(parameterized.TestCase, tf.test.TestCase):
 
     results = diversity.result()
     self.assertLen(results, 3)
-    self.assertEqual(results['disagreement'].shape, [])
-    self.assertEqual(results['average_kl'].shape, [])
-    self.assertEqual(results['cosine_similarity'].shape, [])
+    self.assertIsInstance(results['disagreement'], float)
+    self.assertIsInstance(results['average_kl'], float)
+    self.assertIsInstance(results['cosine_similarity'], float)
 
 
 if __name__ == '__main__':

@@ -188,8 +188,8 @@ class AveragePairwiseDiversity(metrics_base.Metric):
     avg_kl = self._kl_divergence / dataset_size
     avg_cosine_distance = self._cosine_distance / dataset_size
     return {
-        'disagreement': avg_disagreement,
-        'average_kl': avg_kl,
-        'cosine_similarity': avg_cosine_distance,
+        'disagreement': float(avg_disagreement),
+        'average_kl': float(avg_kl),
+        'cosine_similarity': float(avg_cosine_distance),
     }
 
