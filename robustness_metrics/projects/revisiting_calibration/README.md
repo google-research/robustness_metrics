@@ -7,13 +7,13 @@ In this repository we release the code and dataset for the paper [Revisiting the
 
 ## Dataset
 
-Our dataset of calibration measurements includes 185 distinct models, 79 evaluation datasets, and 28 metric variants. The dataset can be downloaded [here](http://storage.googleapis.com/gresearch/revisiting-calibration/index.html). Check out the [Colab](https://github.com/google-research/robustness_metrics/blob/master/robustness_metrics/projects/revisiting_calibration/revisiting_calibration.ipynb) for details on how to use the dataset.
+Our dataset of calibration measurements includes 185 distinct models, 79 evaluation datasets, and 28 metric variants. The dataset can be downloaded [here](http://storage.googleapis.com/gresearch/revisiting-calibration/index.html). Check out the [Colab](https://colab.research.google.com/github/google-research/robustness_metrics/blob/master/robustness_metrics/projects/revisiting_calibration/revisiting_calibration.ipynb) for details on how to use the dataset.
 
 ## Colab
 
 We provide a Colab that shows how to load the data, how the dataset is organized, and how to reproduce most of the figures from the paper:
 
-https://github.com/google-research/robustness_metrics/blob/master/robustness_metrics/projects/revisiting_calibration/revisiting_calibration.ipynb
+https://colab.research.google.com/github/google-research/robustness_metrics/blob/master/robustness_metrics/projects/revisiting_calibration/revisiting_calibration.ipynb
 
 The Colab loads the code from this repository and can be run in a standard CPU runtime.
 
