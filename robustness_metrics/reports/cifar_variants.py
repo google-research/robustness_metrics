@@ -58,8 +58,7 @@ class Cifar10VariantsReport(base.Report):
   @property
   def required_measurements(self):
     def _yield_classification_specs(dataset):
-      for metric in ["accuracy", "ece", "nll", "brier", "timing",
-                     "adaptive_ece(datapoints_per_bin=100,threshold=0.0)"]:
+      for metric in ["accuracy", "ece", "nll", "brier", "timing"]:
         yield base.MeasurementSpec(dataset, metric)
 
     yield from _yield_classification_specs("cifar10")
