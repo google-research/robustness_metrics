@@ -30,6 +30,7 @@ class TaskAdaptationDatasetsTest(parameterized.TestCase, tf.test.TestCase):
   @parameterized.parameters([
       ("cifar10",),
       ("cifar100",),
+      ("cifar10_c(corruption_type='gaussian_noise',severity=1)"),
       ("imagenet",),
       ("imagenet_a",),
       ("imagenet_c(corruption_type='gaussian_noise',severity=1)",),
@@ -42,6 +43,7 @@ class TaskAdaptationDatasetsTest(parameterized.TestCase, tf.test.TestCase):
       num_classes = {
           "cifar10": 10,
           "cifar100": 100,
+          "cifar10_c(corruption_type='gaussian_noise',severity=1)": 10,
       }[name]
     except KeyError:
       num_classes = 1000

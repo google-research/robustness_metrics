@@ -77,8 +77,8 @@ class TFDSDataset(base.Dataset):
 
   def _compute_element_id(self, features: Dict[str, Any]):
     """Hash the element id to compute a unique id."""
-    assert "element_id" not in features, \
-            "`element_id` should not be already present in the feature set."
+    assert_msg = "`element_id` should not be present in the feature set."
+    assert "element_id" not in features, assert_msg
     fingerprint_feature = features[self._fingerprint_key]
     return ops.fingerprint_int64(fingerprint_feature)
 
@@ -131,8 +131,14 @@ class Cifar10CDataset(TFDSDataset):
   def __init__(self, corruption_type, severity):
     tfds_variant_name = f"cifar10_corrupted/{corruption_type}_{severity}"
     super().__init__(dataset_builder=tfds.builder(tfds_variant_name),
-                     fingerprint_key="",
+                     fingerprint_key="_SHOULD_NOT_BE_USED",
                      default_preprocess_fn=default_cifar_preprocessing)
+
+  def create_metadata(self, features):
+    features["metadata"] = {
+        "label": features[self._label_key],
+    }
+    return features
 
   def load(self, preprocess_fn: Optional[PreprocessFn]) -> tf.data.Dataset:
     if not preprocess_fn:
@@ -141,7 +147,13 @@ class Cifar10CDataset(TFDSDataset):
     preprocess_fn = ops.compose(preprocess_fn, self.create_metadata)
     ds = self._dataset_builder.as_dataset(split=self._split,
                                           as_supervised=False)
-    return ds.map(preprocess_fn)
+    ds = ds.map(preprocess_fn)
+
+    def enumerated_to_metadata(position, features):
+      features["metadata"]["element_id"] = position
+      return features
+
+    return ds.enumerate().map(enumerated_to_metadata)
 
 
 @base.registry.register("cifar100")
