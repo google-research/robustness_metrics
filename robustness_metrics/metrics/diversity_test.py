@@ -57,6 +57,14 @@ class DiversityTest(parameterized.TestCase, tf.test.TestCase):
     self.assertIsInstance(results['average_kl'], float)
     self.assertIsInstance(results['cosine_similarity'], float)
 
+  def testAveragePairwiseDiversityWithoutUpdate(self):
+    diversity = rm.metrics.AveragePairwiseDiversity()
+    results = diversity.result()
+    self.assertLen(results, 3)
+    self.assertEqual(results['disagreement'], 0.0)
+    self.assertEqual(results['average_kl'], 0.0)
+    self.assertEqual(results['cosine_similarity'], 0.0)
+
 
 if __name__ == '__main__':
   tf.test.main()
