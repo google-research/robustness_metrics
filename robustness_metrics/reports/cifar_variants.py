@@ -55,20 +55,20 @@ class Cifar10VariantsReport(base.Report):
     self._corruption_metrics = collections.defaultdict(list)
     self._results = {}
 
+  def _yield_classification_specs(self, dataset):
+    for metric in ["accuracy", "ece", "nll", "brier", "timing"]:
+      yield base.MeasurementSpec(dataset, metric)
+
   @property
   def required_measurements(self):
-    def _yield_classification_specs(dataset):
-      for metric in ["accuracy", "ece", "nll", "brier", "timing"]:
-        yield base.MeasurementSpec(dataset, metric)
-
-    yield from _yield_classification_specs("cifar10")
+    yield from self._yield_classification_specs("cifar10")
 
     severities = list(range(1, 6))
     for corruption_type in CIFAR10_CORRUPTIONS:
       for severity in severities:
         dataset = (f"cifar10_c(corruption_type={corruption_type!r},"
                    f"severity={severity})")
-        yield from _yield_classification_specs(dataset)
+        yield from self._yield_classification_specs(dataset)
 
   def add_measurement(self, dataset_spec, metric_name, metric_results):
     dataset_name, _, _ = registry.parse_name_and_kwargs(dataset_spec)
@@ -93,3 +93,43 @@ class Cifar10VariantsReport(base.Report):
     results = dict(self._results)
     results.update(base.compute_stats_per_bucket(self._corruption_metrics))
     return results
+
+
+@base.registry.register("cifar10_variants_ensemble")
+class Cifar10VariantsEnsembleReport(Cifar10VariantsReport):
+  """Aggregated statistics over the CIFAR-10 variants in the case of ensembles.
+
+  It contains the same metrics as in `cifar10_variants`, with the addition of
+  the diversity metrics.
+  """
+
+  def _yield_classification_specs(self, dataset):
+    yield from super()._yield_classification_specs(dataset)
+    yield base.MeasurementSpec(
+        dataset, "average_pairwise_diversity(normalize_disagreement=True)")
+    yield base.MeasurementSpec(
+        dataset, "average_pairwise_diversity(normalize_disagreement=False)")
+
+  def _get_full_metric_key(self, dataset_name, metric_name, metric_key):
+    _, _, diversity_metric_kwargs = registry.parse_name_and_kwargs(metric_name)
+    is_normalized = diversity_metric_kwargs["normalize_disagreement"]
+    if metric_key == "disagreement" and is_normalized:
+      full_metric_key = f"{dataset_name}/normalized_{metric_key}"
+    else:
+      full_metric_key = f"{dataset_name}/{metric_key}"
+    return full_metric_key
+
+  def add_measurement(self, dataset_spec, metric_name, metric_results):
+    if metric_name not in [
+        "average_pairwise_diversity(normalize_disagreement=True)",
+        "average_pairwise_diversity(normalize_disagreement=False)"
+    ]:
+      super().add_measurement(dataset_spec, metric_name, metric_results)
+    else:
+      dataset_name, _, _ = registry.parse_name_and_kwargs(dataset_spec)
+      for metric_key, metric_value in metric_results.items():
+        key = self._get_full_metric_key(dataset_name, metric_name, metric_key)
+        if dataset_name == "cifar10_c":
+          self._corruption_metrics[key].append(metric_value)
+        else:
+          self._results[key] = metric_value

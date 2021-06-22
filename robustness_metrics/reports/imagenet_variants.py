@@ -295,3 +295,55 @@ class ImagenetVariantsRescaledGceSweepReport(ImagenetVariantsGceSweepReport):
         yield from self._yield_classification_specs(dataset)
     yield from self._yield_classification_specs(
         "imagenet_v2(variant='MATCHED_FREQUENCY')")
+
+
+@base.registry.register("imagenet_variants_ensemble_gce_sweep")
+class ImagenetVariantsEnsembleGceSweepReport(ImagenetVariantsGceSweepReport):
+  """Sweeps over additional GCE variants in the case of ensembles.
+
+  It contains the same metrics as in `imagenet_variants_gce_sweep`, with the
+  addition of the diversity metrics.
+  """
+
+  def _yield_diversity_metrics(self, use_dataset_labelset=None):
+    yield "average_pairwise_diversity(normalize_disagreement=True)"
+    yield "average_pairwise_diversity(normalize_disagreement=False)"
+
+  def _yield_metrics_to_evaluate(self, use_dataset_labelset=None):
+    """Yields metrics to be evaluated."""
+
+    # Include standard metrics:
+    yield from super()._yield_metrics_to_evaluate(
+        use_dataset_labelset=use_dataset_labelset)
+    yield from self._yield_diversity_metrics(
+        use_dataset_labelset=use_dataset_labelset)
+
+  def _get_full_metric_key(self, dataset_name, metric_name, metric_key):
+    _, _, diversity_metric_kwargs = registry.parse_name_and_kwargs(metric_name)
+    is_normalized = diversity_metric_kwargs["normalize_disagreement"]
+    if metric_key == "disagreement" and is_normalized:
+      full_metric_key = f"{dataset_name}/normalized_{metric_key}"
+    else:
+      full_metric_key = f"{dataset_name}/{metric_key}"
+    return full_metric_key
+
+  def add_measurement(self, dataset_spec, metric_name, metric_results):
+    if metric_name not in [
+        "average_pairwise_diversity(normalize_disagreement=True)",
+        "average_pairwise_diversity(normalize_disagreement=False)"
+    ]:
+      super().add_measurement(dataset_spec, metric_name, metric_results)
+    else:
+      dataset_name, _, dataset_kwargs = registry.parse_name_and_kwargs(
+          dataset_spec)
+
+      if dataset_name == "imagenet_v2":
+        if dataset_kwargs["variant"] != "MATCHED_FREQUENCY":
+          return
+
+      for metric_key, metric_value in metric_results.items():
+        key = self._get_full_metric_key(dataset_name, metric_name, metric_key)
+        if dataset_name == "imagenet_c":
+          self._corruption_metrics[key].append(metric_value)
+        else:
+          self._results[key] = metric_value
