@@ -18,7 +18,6 @@
 
 import json
 from typing import Iterator, Tuple
-import numpy as np
 from robustness_metrics.common import types
 from robustness_metrics.metrics import base as metrics_base
 import tensorflow as tf
@@ -48,16 +47,10 @@ class Serializer(metrics_base.Metric):
     for key, value in metadata.items():
       if isinstance(value, tf.Tensor):
         value = value.numpy()
-      if hasattr(value, "dtype") and value.dtype == np.int:
-        if isinstance(value, np.ndarray):
-          value = [int(x) for x in value.tolist()]
-        else:
-          value = int(value)
-      elif hasattr(value, "dtype") and value.dtype == np.float:
-        if isinstance(value, np.ndarray):
-          value = [float(x) for x in value.tolist()]
-        else:
-          value = float(value)
+      try:
+        value = value.tolist()
+      except AttributeError:
+        pass
       # Convert bytes (e.g., ImageNetVidRobust's video_frame_id).
       if isinstance(value, bytes):
         value = value.decode("utf-8")
