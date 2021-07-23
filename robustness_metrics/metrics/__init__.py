@@ -64,6 +64,7 @@ from robustness_metrics.metrics.uncertainty import IsotonicRegression
 from robustness_metrics.metrics.uncertainty import MonotonicSweepCalibrationError
 from robustness_metrics.metrics.uncertainty import NegativeLogLikelihood
 from robustness_metrics.metrics.uncertainty import OracleCollaborativeAccuracy
+from robustness_metrics.metrics.uncertainty import OracleCollaborativeAUC
 from robustness_metrics.metrics.uncertainty import RootMeanSquaredCalibrationError
 from robustness_metrics.metrics.uncertainty import SemiParametricCalibrationError
 from robustness_metrics.metrics.uncertainty import SemiParametricCalibrationErrorConfidenceInterval
