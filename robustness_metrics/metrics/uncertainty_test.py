@@ -509,7 +509,7 @@ class KerasECEMetricTest(parameterized.TestCase, tf.test.TestCase):
     model = tf.keras.models.Sequential([tf.keras.layers.Lambda(lambda x: 1*x)])
     model.compile(loss="binary_crossentropy", optimizer="sgd", metrics=[metric])
     outputs = model.predict(pred_probs)
-    self.assertAllClose(pred_probs.reshape([n, 1]), outputs)
+    self.assertAllClose(pred_probs, outputs)
     _, ece = model.evaluate(pred_probs, labels)
     self.assertAllClose(ece, correct_ece)
 
