@@ -166,6 +166,47 @@ class Cifar100Dataset(TFDSDataset):
                      default_preprocess_fn=default_cifar_preprocessing)
 
 
+@base.registry.register("oxford_flowers102")
+class OxfordFlowers102Dataset(TFDSDataset):
+  """The oxford_flowers102 dataset.
+
+  TFDS page: https://www.tensorflow.org/datasets/catalog/oxford_flowers102
+  Original page: https://www.robots.ox.ac.uk/~vgg/data/flowers/102/
+  """
+
+  def __init__(self):
+    super().__init__(dataset_builder=tfds.builder("oxford_flowers102"),
+                     fingerprint_key="file_name",
+                     default_preprocess_fn=default_imagenet_preprocessing)
+
+
+@base.registry.register("oxford_iiit_pet")
+class OxfordIiitPetDataset(TFDSDataset):
+  """The oxford_iiit_pet dataset.
+
+  We only keep the 'image', 'label' and 'file_name' fields, the last one being
+  used for the fingerprint_key.
+
+  TFDS page: https://www.tensorflow.org/datasets/catalog/oxford_iiit_pet
+  Original page: http://www.robots.ox.ac.uk/~vgg/data/pets/
+  """
+
+  def __init__(self):
+    super().__init__(dataset_builder=tfds.builder("oxford_iiit_pet"),
+                     fingerprint_key="file_name",
+                     default_preprocess_fn=default_imagenet_preprocessing)
+
+  def load(self,
+           preprocess_fn: Optional[PreprocessFn] = None) -> tf.data.Dataset:
+    ds = super().load(preprocess_fn)
+
+    def delete_useless_fields(feature):
+      del feature["segmentation_mask"]
+      del feature["species"]
+      return feature
+
+    return ds.map(delete_useless_fields)
+
 _IMAGENET_A_LABELSET = [
     6, 11, 13, 15, 17, 22, 23, 27, 30, 37, 39, 42, 47, 50, 57, 70, 71, 76, 79,
     89, 90, 94, 96, 97, 99, 105, 107, 108, 110, 113, 124, 125, 130, 132, 143,
