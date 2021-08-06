@@ -152,3 +152,21 @@ class ClassficationReport(UnionReport):
     for dataset in self._datasets:
       for metric in metrics:
         yield MeasurementSpec(dataset, metric)
+
+
+@registry.register("ensemble_classification_report")
+class EnsembleClassficationReport(ClassficationReport):
+  """Complete ClassficationReport with ensemble-specific metrics.
+
+  In particular, we add diversity metrics useful to compare ensemble members.
+  """
+
+  @property
+  def required_measurements(self):
+    yield from super().required_measurements
+
+    for dataset in self._datasets:
+      yield MeasurementSpec(
+          dataset, "average_pairwise_diversity(normalize_disagreement=True)")
+      yield MeasurementSpec(
+          dataset, "average_pairwise_diversity(normalize_disagreement=False)")

@@ -83,5 +83,37 @@ class UnionReportTest(absltest.TestCase):
       report.add_measurement("dataset-1", "metric-3", {"c": 5, "d": 6})
 
 
+class EnsembleClassificationReportTest(absltest.TestCase):
+
+  def test_required_measurements(self):
+
+    report = rm.reports.base.EnsembleClassficationReport(["cifar10"])
+    metric_names = ["accuracy", "nll", "ece", "brier"]
+    for mocked_metric_value, metric_name in enumerate(metric_names):
+      report.add_measurement("cifar10", metric_name,
+                             {metric_name: mocked_metric_value})
+
+    # Diversity metrics are missing, an error is expected.
+    with self.assertRaises(ValueError):
+      report.result()
+
+    div_metric_names = [
+        "average_pairwise_diversity(normalize_disagreement=True)",
+        "average_pairwise_diversity(normalize_disagreement=False)"
+    ]
+    for mocked_metric_value, metric_name in enumerate(div_metric_names):
+      report.add_measurement("cifar10", metric_name,
+                             {metric_name: mocked_metric_value})
+
+    self.assertEqual(
+        report.result(), {
+            "cifar10/accuracy/accuracy": 0,
+            "cifar10/nll/nll": 1,
+            "cifar10/ece/ece": 2,
+            "cifar10/brier/brier": 3,
+            f"cifar10/{div_metric_names[0]}/{div_metric_names[0]}": 0,
+            f"cifar10/{div_metric_names[1]}/{div_metric_names[1]}": 1,
+        })
+
 if __name__ == "__main__":
   absltest.main()
