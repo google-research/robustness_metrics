@@ -37,6 +37,7 @@ from typing import Text, Type
 
 from robustness_metrics.common import types
 from robustness_metrics.metrics import base
+from robustness_metrics.metrics import retrieval
 from robustness_metrics.metrics import serialization
 from robustness_metrics.metrics import timing
 from robustness_metrics.metrics import uncertainty
@@ -51,6 +52,9 @@ from robustness_metrics.metrics.base import TopKAccuracy
 from robustness_metrics.metrics.diversity import AveragePairwiseDiversity
 from robustness_metrics.metrics.information_criteria import EnsembleCrossEntropy
 from robustness_metrics.metrics.information_criteria import GibbsCrossEntropy
+from robustness_metrics.metrics.retrieval import AucPr
+from robustness_metrics.metrics.retrieval import AucRoc
+from robustness_metrics.metrics.retrieval import FalsePositiveRate95
 from robustness_metrics.metrics.serialization import Serializer
 from robustness_metrics.metrics.synthetic import Synthetic
 from robustness_metrics.metrics.timing import TimingStatsMetric
@@ -124,12 +128,15 @@ __all__ = [
     "Accuracy",
     "AdaptiveCalibrationError",
     "AggregatedAccuracy",
+    "AucPr",
+    "AucRoc",
     "AveragePairwiseDiversity",
     "Brier",
     "BrierDecomposition",
     "CRPSSCore",
     "EnsembleCrossEntropy",
     "ExpectedCalibrationError",
+    "FalsePositiveRate95",
     "FullBatchMetric",
     "GeneralCalibrationError",
     "GibbsCrossEntropy",
@@ -157,6 +164,7 @@ __all__ = [
     "base",
     "get",
     "registry",
+    "retrieval",
     "serialization",
     "timing",
     "uncertainty",
