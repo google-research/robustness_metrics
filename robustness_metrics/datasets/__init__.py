@@ -17,6 +17,7 @@
 """Module-level convenience functions."""
 
 from robustness_metrics.datasets import base
+from robustness_metrics.datasets import ood_detection
 from robustness_metrics.datasets import tfds
 
 
