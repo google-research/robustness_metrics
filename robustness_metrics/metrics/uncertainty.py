@@ -999,6 +999,159 @@ class OracleCollaborativeAUC(OracleCollaborativeAccuracy):
     self._key_name = "collaborative_auc"
 
 
+@metrics_base.registry.register("calibration_auc")
+class CalibrationAUC(metrics_base.KerasMetric):
+  """Implements AUC metric for uncertainty calibration.
+
+  Given a model that computes uncertainty score, this metric computes the AUC
+  metric for a binary prediction task where the binary "label" is the predictive
+  correctness (a binary label of 0's and 1's), and the prediction score is the
+  confidence score. Both ROC- and PR-type curves are supported. It measures
+  a model's uncertainty calibration in the sense that it examines the degree to
+  which a model uncertainty is predictive of its generalization error.
+
+  Different from Expected Calibration Error (ECE), calibration AUC is scale
+  invariant and focuses on the ranking performance of the uncertainty score
+  (i.e., whether high uncertainty predictions are wrong) rather than the exact
+  value match between the accuracy and the uncertainty scores.
+
+  As a result, calibration AUC more closely reflects the use case of uncertainty
+  in an autonomous system, where the uncertainty score is either used as a
+  ranking signal, or is used to make a binary decision based on a
+  machine-learned threshold. Another benefit of calibration AUC is that it
+  cannot be trivially reduced using post-hoc calibration heuristics such as
+  temperature scaling or isotonic regression, since these methods don't improve
+  the ranking performance of the uncertainty score.
+
+  References:
+  [1]: Ian D. Kivlichan, Zi Lin, Jeremiah Liu, Lucy Vasserman. "Measuring and
+       Improving Model-Moderator Collaboration using Uncertainty Estimation."
+       ACL WOAH. 2021. https://aclanthology.org/2021.woah-1.5/
+  """
+
+  def __init__(self,
+               dataset_info: Optional[datasets_base.DatasetInfo] = None,
+               use_dataset_labelset: bool = False,
+               curve: str = "ROC",
+               multi_label: bool = False,
+               correct_pred_as_pos_label: bool = True,
+               **kwargs: Mapping[str, Any]):
+    """Constructs CalibrationAUC class.
+
+    Args:
+      dataset_info: The DatasetInfo object associated with the dataset.
+      use_dataset_labelset: If set, and the given dataset has only a subset of
+        the classes the model produces, the classes that are not in the dataset
+        will be removed and the others scaled to sum up to one.
+      curve: Specifies the name of the curve to be computed, 'ROC' [default] or
+        'PR' for the Precision-Recall-curve.
+      multi_label: Whether tf.keras.metrics.AUC should treat input label as
+        multi-class. Ignored.
+      correct_pred_as_pos_label: Whether to use correct prediction as positive
+        label for AUC computation. If False then use it as negative label.
+      **kwargs: Other keyword arguments to tf.keras.metrics.AUC.
+    """
+    metric = _KerasCalibrationAUCMetric(
+        curve=curve,
+        multi_label=multi_label,
+        correct_pred_as_pos_label=correct_pred_as_pos_label,
+        **kwargs)
+
+    super().__init__(
+        dataset_info=dataset_info,
+        keras_metric=metric,
+        key_name="calibration_auc",
+        take_argmax=False,
+        one_hot=False,
+        use_dataset_labelset=use_dataset_labelset)
+
+  @tf.function
+  def _add_prediction(self,
+                      predictions,
+                      label,
+                      average_predictions,
+                      confidence=None):
+    """Feeds the given label and prediction to the underlying Keras metric."""
+    if average_predictions:
+      predictions = tf.reduce_mean(predictions, axis=0, keepdims=True)
+    if self._one_hot:
+      label = tf.one_hot(label, self._num_classes)
+    if self._take_argmax:
+      self._metric.update_state(
+          label,
+          tf.argmax(predictions, axis=-1),
+          confidence=confidence)
+    else:
+      self._metric.update_state(
+          label, predictions, confidence=confidence)
+
+  def add_predictions(self, model_predictions: types.ModelPredictions,
+                      **metadata) -> None:
+    try:
+      element_id = int(metadata["element_id"])
+      if element_id in self._ids_seen:
+        raise ValueError(
+            "KerasMetric does not support reporting the same id multiple "
+            f"times, but you added element id {element_id} twice.")
+      else:
+        self._ids_seen.add(element_id)
+    except KeyError:
+      pass
+
+    stacked_predictions = np.stack(model_predictions.predictions)
+    if "label" not in metadata:
+      raise ValueError("KerasMetric expects a `label` in the metadata."
+                       f"Available fields are: {metadata.keys()!r}")
+    confidence = metadata.get("confidence")
+
+    if self._use_dataset_labelset:
+      # pylint: disable=protected-access
+      predictions, label = metrics_base._map_labelset(stacked_predictions,
+                                                      metadata["label"],
+                                                      self._appearing_classes)
+      # pylint: enable=protected-access
+      self._add_prediction(predictions,
+                           label,
+                           self._average_predictions,
+                           confidence=confidence)
+    else:
+      self._add_prediction(stacked_predictions,
+                           metadata["label"],
+                           self._average_predictions,
+                           confidence=confidence)
+
+  def add_batch(self, model_predictions,
+                **metadata: Optional[Dict[str, Any]]) -> None:
+    """Adds a batch of predictions for a batch of examples.
+
+    Args:
+      model_predictions: The batch of predictions, one for each example in the
+        batch.
+      **metadata: The batch metadata, possibly including `labels` which is the
+        batch of labels and `custom_binning_score` which is the batch of binning
+        scores (overriding the default behavior of binning by predicted
+        probability), one for each example in the batch.
+    """
+    # Note that even though the labels are really over a batch of predictions,
+    # we use the kwarg "label" to be consistent with the other functions that
+    # use the singular name.
+    self._average_predictions = False
+    label = metadata["label"]
+    confidence = metadata["confidence"]
+    if self._use_dataset_labelset:
+      model_predictions = tf.gather(
+          model_predictions, self._appearing_classes, axis=-1)
+      model_predictions /= tf.math.reduce_sum(
+          model_predictions, axis=-1, keepdims=True)
+      label = tf.convert_to_tensor(
+          [self._appearing_classes.index(x) for x in label])
+    self._add_prediction(
+        predictions=model_predictions,
+        label=label,
+        average_predictions=False,
+        confidence=confidence)
+
+
 @metrics_base.registry.register("nll")
 class NegativeLogLikelihood(metrics_base.KerasMetric):
   r"""Multi-class negative log likelihood.

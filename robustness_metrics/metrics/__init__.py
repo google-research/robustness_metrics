@@ -61,6 +61,7 @@ from robustness_metrics.metrics.timing import TimingStatsMetric
 from robustness_metrics.metrics.uncertainty import AdaptiveCalibrationError
 from robustness_metrics.metrics.uncertainty import Brier
 from robustness_metrics.metrics.uncertainty import BrierDecomposition
+from robustness_metrics.metrics.uncertainty import CalibrationAUC
 from robustness_metrics.metrics.uncertainty import CRPSSCore
 from robustness_metrics.metrics.uncertainty import ExpectedCalibrationError
 from robustness_metrics.metrics.uncertainty import GeneralCalibrationError

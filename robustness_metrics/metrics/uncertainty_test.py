@@ -1658,7 +1658,15 @@ class CalibrationAUCTest(tf.test.TestCase, parameterized.TestCase):
     m_auroc.update_state(self.y_true, self.y_pred, confidence)
     keras_result = m_auroc.result().numpy()
 
+    # Tests the wrapped rm metric.
+    m_auroc_wrapped = rm.metrics.CalibrationAUC(
+        num_thresholds=self.num_thresholds, curve="ROC")
+    m_auroc_wrapped.add_batch(
+        self.y_pred, label=self.y_true, confidence=confidence)
+    rm_result = m_auroc_wrapped.result()["calibration_auc"]
+
     self.assertEqual(keras_result, auc_expected)
+    self.assertEqual(rm_result, auc_expected)
 
   @parameterized.named_parameters(("perfect", [1, 0, 0, 0, 1], 1.),
                                   ("decent", [1, 0, 0, 0.1, 1], 1.),
@@ -1672,7 +1680,15 @@ class CalibrationAUCTest(tf.test.TestCase, parameterized.TestCase):
     m_aupr.update_state(self.y_true, self.y_pred, confidence)
     keras_result = m_aupr.result().numpy()
 
+    # Tests the wrapped rm metric.
+    m_aupr_wrapped = rm.metrics.CalibrationAUC(
+        num_thresholds=self.num_thresholds, curve="PR")
+    m_aupr_wrapped.add_batch(
+        self.y_pred, label=self.y_true, confidence=confidence)
+    rm_result = m_aupr_wrapped.result()["calibration_auc"]
+
     self.assertAllClose(keras_result, auc_expected, atol=1e-3)
+    self.assertAllClose(rm_result, auc_expected, atol=1e-3)
 
   def testAUCRankTwo(self):
     """Checks if AUC indeed does not accept tensors with rank >= 2."""
@@ -1681,10 +1697,15 @@ class CalibrationAUCTest(tf.test.TestCase, parameterized.TestCase):
 
     m_auc = rm.metrics.uncertainty._KerasCalibrationAUCMetric(
         num_thresholds=self.num_thresholds)
+    m_auc_wrapped = rm.metrics.CalibrationAUC(
+        num_thresholds=self.num_thresholds)
 
     with self.assertRaises(ValueError):
       m_auc.update_state(self.y_true, y_pred_rank_2, confidence)
 
+    with self.assertRaises(ValueError):
+      m_auc_wrapped.add_batch(
+          y_pred_rank_2, label=self.y_true, confidence=confidence)
 
 if __name__ == "__main__":
   tf.test.main()
