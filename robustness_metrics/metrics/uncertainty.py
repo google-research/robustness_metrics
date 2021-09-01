@@ -665,12 +665,128 @@ class _KerasOracleCollaborativeAUCMetric(tf.keras.metrics.AUC):
     return super().result()
 
 
+class _KerasCalibrationAUCMetric(tf.keras.metrics.AUC):
+  """Implements AUC metric for uncertainty calibration.
+
+  Given a model that computes uncertainty score, this metric computes the AUC
+  metric for a binary prediction task where the binary "label" is the predictive
+  correctness (a binary label of 0's and 1's), and the prediction score is the
+  confidence score. Both ROC- and PR-type curves are supported. It measures
+  a model's uncertainty calibration in the sense that it examines the degree to
+  which a model uncertainty is predictive of its generalization error.
+
+  Different from Expected Calibration Error (ECE), calibration AUC is scale
+  invariant and focuses on the ranking performance of the uncertainty score
+  (i.e., whether high uncertainty predictions are wrong) rather than the exact
+  value match between the accuracy and the uncertainty scores.
+
+  As a result, calibration AUC more closely reflects the use case of uncertainty
+  in an autonomous system, where the uncertainty score is either used as a
+  ranking signal, or is used to make a binary decision based on a
+  machine-learned threshold. Another benefit of calibration AUC is that it
+  cannot be trivially reduced using post-hoc calibration heuristics such as
+  temperature scaling or isotonic regression, since these methods don't improve
+  the ranking performance of the uncertainty score.
+
+  References:
+  [1]: Ian D. Kivlichan, Zi Lin, Jeremiah Liu, Lucy Vasserman. "Measuring and
+       Improving Model-Moderator Collaboration using Uncertainty Estimation."
+       ACL WOAH. 2021. https://aclanthology.org/2021.woah-1.5/
+  """
+
+  def __init__(self,
+               curve: str = "ROC",
+               multi_label: bool = False,
+               correct_pred_as_pos_label: bool = True,
+               **kwargs: Mapping[str, Any]):
+    """Constructs CalibrationAUC class.
+
+    Args:
+      curve: Specifies the name of the curve to be computed, 'ROC' [default] or
+        'PR' for the Precision-Recall-curve.
+      multi_label: Whether tf.keras.metrics.AUC should treat input label as
+        multi-class. Ignored.
+      correct_pred_as_pos_label: Whether to use correct prediction as positive
+        label for AUC computation. If False then use it as negative label.
+      **kwargs: Other keyword arguments to tf.keras.metrics.AUC.
+    """
+    # Ignore `multi_label` since accuracy v.s. uncertainty is a binary problem
+    # (i.e., the "label" is whether prediction is correct or not).
+    if multi_label:
+      raise ValueError("`multi_label` must be False for Calibration AUC.")
+
+    super().__init__(curve=curve, multi_label=False, **kwargs)
+    self.correct_pred_as_pos_label = correct_pred_as_pos_label
+
+  def update_state(self, y_true: Sequence[float], y_pred: Sequence[float],
+                   confidence: Sequence[float], **kwargs: Mapping[str,
+                                                                  Any]) -> None:
+    """Updates confidence versus accuracy AUC statistics.
+
+    Args:
+      y_true: The ground truth labels. Shape (batch_size, ).
+      y_pred: The predicted label indices. Must be integer valued predictions
+        for label indices rather than the predictive probability. For the
+        multi-label classification problem, y_pred is typically obtained as
+        `tf.math.reduce_max(logits)`. Shape (batch_size, ).
+      confidence: The confidence score where higher value indicates lower
+        uncertainty. Values should be within [0, 1].
+      **kwargs: Additional keyword arguments.
+    """
+    # Creates binary 'label' of prediction correctness, shape (batch_size, ).
+    scores = tf.convert_to_tensor(confidence, dtype=self.dtype)
+    labels = _compute_correct_predictions(
+        y_true, y_pred, dtype=self.dtype)
+
+    if not self.correct_pred_as_pos_label:
+      # Use incorrect prediction as the positive class.
+      # This is important since an accurate model has few incorrect predictions.
+      # This results in label imbalance in the calibration AUC computation, and
+      # can lead to overly optimistic results.
+      scores = 1. - scores
+      labels = 1. - labels
+
+    # Updates confidence v.s. accuracy AUC statistic.
+    super().update_state(y_true=labels, y_pred=scores, **kwargs)
+
+
 def _replace_first_and_last_elements(original_tensor: Sequence[float],
                                      new_first_elem: float,
                                      new_last_elem: float) -> tf.Tensor:
   """Return a copy of original_tensor replacing its first and last elements."""
   return tf.concat([[new_first_elem], original_tensor[1:-1], [new_last_elem]],
                    axis=0)
+
+
+def _compute_correct_predictions(y_true: Sequence[float],
+                                 y_pred: Sequence[float],
+                                 dtype: tf.DType = tf.float32) -> tf.Tensor:
+  """Computes binary 'labels' of prediction correctness.
+
+  To be used by `_KerasCalibrationAUCMetric`.
+
+  Args:
+    y_true: The ground truth labels. Shape (batch_size, ).
+    y_pred: The predicted labels. Must be integer valued predictions for label
+      index rather than the predictive probability. For multi-label
+      classification problems, y_pred is typically obtained as
+      `tf.math.reduce_max(logits)`. Shape (batch_size, ).
+    dtype: (Optional) data type of the metric result.
+
+  Returns:
+    A Tensor of dtype and shape (batch_size, ).
+  """
+  y_true = tf.cast(tf.convert_to_tensor(y_true), dtype=dtype)
+  y_pred = tf.cast(tf.convert_to_tensor(y_pred), dtype=dtype)
+
+  # Ranks of both y_pred and y_true should be 1.
+  if len(y_true.shape) != 1 or len(y_pred.shape) != 1:
+    raise ValueError("Ranks of y_true and y_pred must both be 1. "
+                     f"Got {len(y_true.shape)} and {len(y_pred.shape)}")
+
+  # Creates binary 'label' of correct prediction, shape (batch_size, ).
+  correct_preds = tf.math.equal(y_true, y_pred)
+  return tf.cast(correct_preds, dtype=dtype)
 
 
 @metrics_base.registry.register("collaborative_accuracy")
@@ -828,9 +944,9 @@ class OracleCollaborativeAUC(OracleCollaborativeAccuracy):
   but rather are expected values, similar to the regular AUC computation.
 
   References:
-    [1] Ian D. Kivlichan, Zi Lin, Jeremiah Liu, Lucy Vasserman. "Measuring and
-    Improving Model-Moderator Collaboration using Uncertainty Estimation." To
-    appear at ACL WOAH. 2021. https://arxiv.org/abs/2107.04212
+  [1]: Ian D. Kivlichan, Zi Lin, Jeremiah Liu, Lucy Vasserman. "Measuring and
+       Improving Model-Moderator Collaboration using Uncertainty Estimation."
+       ACL WOAH. 2021. https://aclanthology.org/2021.woah-1.5/
   """
 
   def __init__(self,

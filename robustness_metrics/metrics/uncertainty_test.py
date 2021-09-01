@@ -1638,5 +1638,53 @@ class OracleCollaborativeAUCTest(tf.test.TestCase):
     self.assertAllClose(result, 0.625)
 
 
+class CalibrationAUCTest(tf.test.TestCase, parameterized.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self.num_thresholds = 10
+    self.y_true = [0, 0, 0, 1, 1]
+    self.y_pred = [0, 1, 1, 0, 1]
+
+  @parameterized.named_parameters(("perfect", [1, 0, 0, 0, 1], 1.),
+                                  ("decent", [1, 0, 0, 0.1, 0], 0.75),
+                                  ("medium", [1, 0.5, 0.5, 0.5, 0], 0.5),
+                                  ("poor", [0.5, 0.5, 0.5, 0.5, 0.5], 0.5),
+                                  ("wrong", [0.1, 0.9, 0.9, 0.9, 0.1], 0.))
+  def testAUCROC(self, confidence, auc_expected):
+    # Tests the keras metric.
+    m_auroc = rm.metrics.uncertainty._KerasCalibrationAUCMetric(
+        num_thresholds=self.num_thresholds, curve="ROC")
+    m_auroc.update_state(self.y_true, self.y_pred, confidence)
+    keras_result = m_auroc.result().numpy()
+
+    self.assertEqual(keras_result, auc_expected)
+
+  @parameterized.named_parameters(("perfect", [1, 0, 0, 0, 1], 1.),
+                                  ("decent", [1, 0, 0, 0.1, 1], 1.),
+                                  ("medium", [1, 0.8, 0.5, 0.1, 0.5], 0.75),
+                                  ("poor", [0.5, 0.5, 0.5, 0.5, 0.5], 0.4),
+                                  ("wrong", [0.1, 0.9, 0.9, 0.9, 0.1], 0.234))
+  def testAUCPR(self, confidence, auc_expected):
+    # Tests the keras metric.
+    m_aupr = rm.metrics.uncertainty._KerasCalibrationAUCMetric(
+        num_thresholds=self.num_thresholds, curve="PR")
+    m_aupr.update_state(self.y_true, self.y_pred, confidence)
+    keras_result = m_aupr.result().numpy()
+
+    self.assertAllClose(keras_result, auc_expected, atol=1e-3)
+
+  def testAUCRankTwo(self):
+    """Checks if AUC indeed does not accept tensors with rank >= 2."""
+    y_pred_rank_2 = [self.y_pred]
+    confidence = [0, 1, 1, 1, 0]
+
+    m_auc = rm.metrics.uncertainty._KerasCalibrationAUCMetric(
+        num_thresholds=self.num_thresholds)
+
+    with self.assertRaises(ValueError):
+      m_auc.update_state(self.y_true, y_pred_rank_2, confidence)
+
+
 if __name__ == "__main__":
   tf.test.main()
