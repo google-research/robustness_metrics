@@ -24,9 +24,9 @@ tf_dataset = dataset.load(preprocess_fn)
 ```
 """
 import abc
+import dataclasses
 from typing import Callable, List, Optional
 
-import dataclasses
 from robustness_metrics.common import registry
 from robustness_metrics.common import types
 import tensorflow as tf

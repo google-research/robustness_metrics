@@ -32,6 +32,11 @@ default_imagenet_preprocessing = pipeline_builder.get_preprocess_fn(
 PreprocessFn = Callable[[types.Features], types.Features]
 
 
+def _enumerated_to_metadata(position, features):
+  features["metadata"]["element_id"] = position
+  return features
+
+
 class TFDSDataset(base.Dataset):
   """The base class of all `tensorflow_datasets` (TFDS) datasets.
 
@@ -46,7 +51,7 @@ class TFDSDataset(base.Dataset):
 
   def __init__(self,
                dataset_builder: tfds.core.DatasetBuilder,
-               fingerprint_key: str,
+               fingerprint_key: Optional[str] = None,
                split: Union[str, tfds.Split] = "test",
                label_key: Optional[str] = "label",
                default_preprocess_fn: Optional[PreprocessFn] = None):
@@ -55,7 +60,8 @@ class TFDSDataset(base.Dataset):
     Args:
       dataset_builder: The tfds builder for the dataset.
       fingerprint_key: The name of the feature holding a string that will be
-        used to create an element id using a fingerprinting function.
+        used to create an element id using a fingerprinting function. If it is
+        equal to None, the logic for `create_metadata` has to be overriden.
       split: The name of the dataset split.
       label_key: The name of the field holding the label.
       default_preprocess_fn: The function used to preprocess the data in `load`
@@ -83,6 +89,10 @@ class TFDSDataset(base.Dataset):
     return ops.fingerprint_int64(fingerprint_feature)
 
   def create_metadata(self, features):
+    if self._fingerprint_key is None:
+      error_msg = ("If fingerprint_key=None, the logic of `create_metadata` has"
+                   " to be overriden.")
+      raise NotImplementedError(error_msg)
     features["metadata"] = {
         "label": features[self._label_key],
         "element_id": self._compute_element_id(features),
@@ -148,12 +158,7 @@ class Cifar10CDataset(TFDSDataset):
     ds = self._dataset_builder.as_dataset(split=self._split,
                                           as_supervised=False)
     ds = ds.map(preprocess_fn)
-
-    def enumerated_to_metadata(position, features):
-      features["metadata"]["element_id"] = position
-      return features
-
-    return ds.enumerate().map(enumerated_to_metadata)
+    return ds.enumerate().map(_enumerated_to_metadata)
 
 
 @base.registry.register("cifar100")
@@ -206,6 +211,75 @@ class OxfordIiitPetDataset(TFDSDataset):
       return feature
 
     return ds.map(delete_useless_fields)
+
+
+@base.registry.register("places365")
+class Places365Dataset(TFDSDataset):
+  """The places365_small dataset.
+
+  Only 'image' and 'label' are available; fingerprint_key based on the position
+  of the element in the dataset.
+
+  TFDS page: https://www.tensorflow.org/datasets/catalog/places365_small
+  Original page: http://places2.csail.mit.edu/
+  """
+
+  def __init__(self):
+    super().__init__(dataset_builder=tfds.builder("places365_small"),
+                     default_preprocess_fn=default_imagenet_preprocessing)
+
+  def create_metadata(self, features):
+    features["metadata"] = {
+        "label": features[self._label_key],
+    }
+    return features
+
+  def load(self,
+           preprocess_fn: Optional[PreprocessFn] = None) -> tf.data.Dataset:
+    ds = super().load(preprocess_fn)
+    return ds.enumerate().map(_enumerated_to_metadata)
+
+
+@base.registry.register("dtd")
+class DtdDataset(TFDSDataset):
+  """The Describable Textures Dataset (DTD) dataset.
+
+  TFDS page: https://www.tensorflow.org/datasets/catalog/dtd
+  Original page: https://www.robots.ox.ac.uk/~vgg/data/dtd/index.html
+  """
+
+  def __init__(self):
+    super().__init__(dataset_builder=tfds.builder("dtd"),
+                     fingerprint_key="file_name",
+                     default_preprocess_fn=default_imagenet_preprocessing)
+
+
+@base.registry.register("svhn")
+class SvhnDataset(TFDSDataset):
+  """The Street View House Numbers (SVHN) dataset.
+
+  Only 'image' and 'label' are available; fingerprint_key based on the position
+  of the element in the dataset.
+
+  TFDS page: https://www.tensorflow.org/datasets/catalog/svhn_cropped
+  Original page: http://ufldl.stanford.edu/housenumbers/
+  """
+
+  def __init__(self):
+    super().__init__(dataset_builder=tfds.builder("svhn_cropped"),
+                     default_preprocess_fn=default_imagenet_preprocessing)
+
+  def create_metadata(self, features):
+    features["metadata"] = {
+        "label": features[self._label_key],
+    }
+    return features
+
+  def load(self,
+           preprocess_fn: Optional[PreprocessFn] = None) -> tf.data.Dataset:
+    ds = super().load(preprocess_fn)
+    return ds.enumerate().map(_enumerated_to_metadata)
+
 
 _IMAGENET_A_LABELSET = [
     6, 11, 13, 15, 17, 22, 23, 27, 30, 37, 39, 42, 47, 50, 57, 70, 71, 76, 79,

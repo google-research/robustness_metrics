@@ -38,6 +38,9 @@ class TaskAdaptationDatasetsTest(parameterized.TestCase, tf.test.TestCase):
       ("synthetic(variant='location')",),
       ("oxford_flowers102",),
       ("oxford_iiit_pet",),
+      ("places365",),
+      ("dtd",),
+      ("svhn",),
   ])
   def test_that_it_loads_with_default(self, name, label_field="label"):
     dataset_object = dataset = rm.datasets.get(name)
@@ -48,14 +51,17 @@ class TaskAdaptationDatasetsTest(parameterized.TestCase, tf.test.TestCase):
           "cifar10_c(corruption_type='gaussian_noise',severity=1)": 10,
           "oxford_flowers102": 102,
           "oxford_iiit_pet": 37,
+          "places365": 365,
+          "svhn": 10,
+          "dtd": 47,
       }[name]
     except KeyError:
       num_classes = 1000
     self.assertEqual(dataset_object.info.num_classes, num_classes)
-    if ("imagenet" in name) or ("synthetic" in name) or ("oxford" in name):
-      expected_shape = [224, 224, 3]
-    else:
+    if "cifar" in name:
       expected_shape = [32, 32, 3]
+    else:
+      expected_shape = [224, 224, 3]
     dataset = dataset_object.load(preprocess_fn=None).batch(8)
     for features in dataset.take(1):
       for feature in self.necessary_fields + [label_field]:
