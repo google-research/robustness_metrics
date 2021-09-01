@@ -33,7 +33,7 @@ PreprocessFn = Callable[[types.Features], types.Features]
 
 
 def _enumerated_to_metadata(position, features):
-  features["metadata"]["element_id"] = position
+  features["metadata"]["element_id"] = tf.reshape(position, [1])
   return features
 
 
