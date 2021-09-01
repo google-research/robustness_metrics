@@ -91,6 +91,8 @@ class OodDetectionDataset(base.Dataset, metaclass=abc.ABCMeta):
     return _concatenate(in_ds, out_ds)
 
 
+# The choices of the pairing of the datasets are motivated by the setting of:
+#   https://arxiv.org/pdf/2106.03004.pdf, Appendix C.
 @base.registry.register("cifar10_vs_cifar100")
 class Cifar10VsCifar100Dataset(OodDetectionDataset):
   """The CIFAR-10 vs. CIFAR-100 ood detection dataset."""
@@ -104,6 +106,45 @@ class Cifar10VsCifar100Dataset(OodDetectionDataset):
     return rm_tfds.Cifar100Dataset()
 
 
+@base.registry.register("cifar10_vs_dtd")
+class Cifar10VsDtdDataset(OodDetectionDataset):
+  """The CIFAR-10 vs. DTD ood detection dataset."""
+
+  @property
+  def in_dataset(self) -> base.Dataset:
+    return rm_tfds.Cifar10Dataset()
+
+  @property
+  def out_dataset(self) -> base.Dataset:
+    return rm_tfds.DtdDataset()
+
+
+@base.registry.register("cifar10_vs_places365")
+class Cifar10VsPlaces365Dataset(OodDetectionDataset):
+  """The CIFAR-10 vs. Places365 ood detection dataset."""
+
+  @property
+  def in_dataset(self) -> base.Dataset:
+    return rm_tfds.Cifar10Dataset()
+
+  @property
+  def out_dataset(self) -> base.Dataset:
+    return rm_tfds.Places365Dataset()
+
+
+@base.registry.register("cifar10_vs_svhn")
+class Cifar10VsSvhnDataset(OodDetectionDataset):
+  """The CIFAR-10 vs. SVHN ood detection dataset."""
+
+  @property
+  def in_dataset(self) -> base.Dataset:
+    return rm_tfds.Cifar10Dataset()
+
+  @property
+  def out_dataset(self) -> base.Dataset:
+    return rm_tfds.SvhnDataset()
+
+
 @base.registry.register("cifar100_vs_cifar10")
 class Cifar100VsCifar10Dataset(OodDetectionDataset):
   """The CIFAR-100 vs. CIFAR-10 ood detection dataset."""
@@ -115,3 +156,42 @@ class Cifar100VsCifar10Dataset(OodDetectionDataset):
   @property
   def out_dataset(self) -> base.Dataset:
     return rm_tfds.Cifar10Dataset()
+
+
+@base.registry.register("cifar100_vs_dtd")
+class Cifar100VsDtdDataset(OodDetectionDataset):
+  """The CIFAR-100 vs. DTD ood detection dataset."""
+
+  @property
+  def in_dataset(self) -> base.Dataset:
+    return rm_tfds.Cifar100Dataset()
+
+  @property
+  def out_dataset(self) -> base.Dataset:
+    return rm_tfds.DtdDataset()
+
+
+@base.registry.register("cifar100_vs_places365")
+class Cifar100VsPlaces365Dataset(OodDetectionDataset):
+  """The CIFAR-100 vs. Places365 ood detection dataset."""
+
+  @property
+  def in_dataset(self) -> base.Dataset:
+    return rm_tfds.Cifar100Dataset()
+
+  @property
+  def out_dataset(self) -> base.Dataset:
+    return rm_tfds.Places365Dataset()
+
+
+@base.registry.register("cifar100_vs_svhn")
+class Cifar100VsSvhnDataset(OodDetectionDataset):
+  """The CIFAR-100 vs. SVHN ood detection dataset."""
+
+  @property
+  def in_dataset(self) -> base.Dataset:
+    return rm_tfds.Cifar100Dataset()
+
+  @property
+  def out_dataset(self) -> base.Dataset:
+    return rm_tfds.SvhnDataset()

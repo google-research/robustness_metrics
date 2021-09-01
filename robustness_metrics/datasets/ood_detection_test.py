@@ -23,7 +23,8 @@ from robustness_metrics.datasets import tfds as rm_tfds
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
-
+C10 = rm_tfds.Cifar10Dataset
+C100 = rm_tfds.Cifar100Dataset
 NUM_EXAMPLES = 32
 
 
@@ -32,15 +33,28 @@ class OodDetectionDatasetsTest(parameterized.TestCase, tf.test.TestCase):
   necessary_fields = ["image", "metadata"]
 
   @parameterized.parameters([
-      ("cifar10_vs_cifar100",),
-      ("cifar100_vs_cifar10",),
+      # cifar10 versus *
+      ("cifar10_vs_cifar100", [32, 32, 3]),
+      ("cifar10_vs_dtd", [224, 224, 3]),
+      ("cifar10_vs_places365", [224, 224, 3]),
+      ("cifar10_vs_svhn", [224, 224, 3]),
+      # cifar100 versus *
+      ("cifar100_vs_cifar10", [32, 32, 3]),
+      ("cifar100_vs_dtd", [224, 224, 3]),
+      ("cifar100_vs_places365", [224, 224, 3]),
+      ("cifar100_vs_svhn", [224, 224, 3]),
   ])
-  def test_that_it_loads_with_default(self, ds_name, label_field="label"):
-    expected_shape = [32, 32, 3]
+  def test_that_it_loads_with_default(self,
+                                      ds_name,
+                                      out_ds_expected_shape,
+                                      label_field="label"):
     batch_size = 8
     assert_msg = ("The unit test requires NUM_EXAMPLES to be a multiple of the "
                   f" batch_size; received {NUM_EXAMPLES} and {batch_size}.")
     assert NUM_EXAMPLES % batch_size == 0, assert_msg
+
+    in_ds_expected_shape = [batch_size] + [32, 32, 3]
+    out_ds_expected_shape = [batch_size] + out_ds_expected_shape
 
     # The in- and out-of-distribution datasets are concatenated, with a total
     # size equal to 2 * NUM_EXAMPLES.
@@ -52,19 +66,31 @@ class OodDetectionDatasetsTest(parameterized.TestCase, tf.test.TestCase):
     for batch_index, features in enumerate(dataset, 1):
       for feature in self.necessary_fields + [label_field]:
         self.assertIn(feature, features.keys())
-      self.assertEqual(features["image"].shape, [batch_size] + expected_shape)
       self.assertEqual(features["metadata"]["element_id"].dtype, tf.int64)
       # The first NUM_EXAMPLES datapoints are the in-distribution datapoints.
       # Their labels are 1's. Conversely, the last NUM_EXAMPLES datapoints are
       # the out-of-distribution datapoints, with labels equal to 0's.
+      #
+      # Also, with no preprocess_fn specified (i.e., default), the images for
+      # the in- and out-of-distribution datasets can have different shapes.
       if batch_index * batch_size <= NUM_EXAMPLES:
         self.assertAllEqual(features["label"], [1] * batch_size)
+        self.assertEqual(features["image"].shape, in_ds_expected_shape)
       else:
         self.assertAllEqual(features["label"], [0] * batch_size)
+        self.assertEqual(features["image"].shape, out_ds_expected_shape)
 
   @parameterized.parameters([
+      # cifar10 versus *
       ("cifar10_vs_cifar100",),
+      ("cifar10_vs_dtd",),
+      ("cifar10_vs_places365",),
+      ("cifar10_vs_svhn",),
+      # cifar100 versus *
       ("cifar100_vs_cifar10",),
+      ("cifar100_vs_dtd",),
+      ("cifar100_vs_places365",),
+      ("cifar100_vs_svhn",),
   ])
   def test_that_it_preprocesses_and_batches(self, name, batch_size=8):
 
@@ -85,10 +111,24 @@ class OodDetectionDatasetsTest(parameterized.TestCase, tf.test.TestCase):
       self.assertAllEqual(features["image"].shape, [batch_size, 224, 224, 3])
 
   @parameterized.parameters([
-      ("cifar10_vs_cifar100", rm_tfds.Cifar10Dataset, rm_tfds.Cifar100Dataset,
+      # cifar10 versus *
+      ("cifar10_vs_cifar100", C10, C100,
        ["id", "image", "label", "metadata"], ["element_id", "label"]),
-      ("cifar100_vs_cifar10", rm_tfds.Cifar100Dataset, rm_tfds.Cifar10Dataset,
+      ("cifar10_vs_dtd", C10, rm_tfds.DtdDataset,
+       ["image", "label", "metadata"], ["element_id", "label"]),
+      ("cifar10_vs_places365", C10, rm_tfds.Places365Dataset,
+       ["image", "label", "metadata"], ["element_id", "label"]),
+      ("cifar10_vs_svhn", C10, rm_tfds.SvhnDataset,
+       ["image", "label", "metadata"], ["element_id", "label"]),
+      # cifar100 versus *
+      ("cifar100_vs_cifar10", C100, C10,
        ["id", "image", "label", "metadata"], ["element_id", "label"]),
+      ("cifar100_vs_dtd", C100, rm_tfds.DtdDataset,
+       ["image", "label", "metadata"], ["element_id", "label"]),
+      ("cifar100_vs_places365", C100, rm_tfds.Places365Dataset,
+       ["image", "label", "metadata"], ["element_id", "label"]),
+      ("cifar100_vs_svhn", C100, rm_tfds.SvhnDataset,
+       ["image", "label", "metadata"], ["element_id", "label"]),
   ])
   def test_common_feature_keys(self, ds_name, in_ds_type, out_ds_type,
                                expected_keys, expected_metadata_keys):
