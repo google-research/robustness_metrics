@@ -36,7 +36,11 @@ def _format_predictions(predictions: np.ndarray,
     predictions = predictions[:, 1]
   else:
     # In the multiclass case, we take the maximum predictions across classes.
-    # This is motivated by the OOD detection setting.
+    # This is motivated by the OOD detection setting with the standard approach:
+    #   "Maximum over softmax probabilities" (MSP),
+    #   See https://arxiv.org/pdf/2106.03004.pdf.
+    # TODO(rjenatton): Generalize this logic to other known schemes, e.g.,
+    #                  entropy(predictions, axis=-1) or Mahalanobis distance.
     predictions = np.max(predictions, axis=-1)
   return predictions
 

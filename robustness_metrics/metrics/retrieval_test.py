@@ -101,7 +101,6 @@ class AucRocAndFalsePositiveRate95Test(parameterized.TestCase,
       ("fpr95", 1.0),
   )
   def test_auc_roc_and_fpr95_binary(self, metric_name, result):
-    # Test case inspired by the example from cl/393056162.
     metric = rm.metrics.get(f"{metric_name}(is_binary_classification=True)")
     metric.add_predictions(
         rm.common.types.ModelPredictions(predictions=[[.8, .2]]),
