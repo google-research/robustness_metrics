@@ -202,13 +202,20 @@ def compute_predictions_jax(
     return jax.lax.all_gather(inputs, "i")
   gather = jax.pmap(_gather, axis_name="i")
 
+  def reshape_for_pmap(array):
+    return jax.tree_map(
+        lambda x: x.reshape((jax.local_device_count(), -1) + x.shape[1:]),
+        array)
+
   def infer(features):
     probabilities = model(features)
-    return_vals = (probabilities, features["metadata"], features["mask"])
-    return_vals_reshaped = jax.tree_map(
-        lambda x: x.reshape((jax.local_device_count(), -1) + x.shape[1:]),
-        return_vals
-    )
+    return_vals = (probabilities, features["mask"])
+    return_vals_reshaped = reshape_for_pmap(return_vals)
+    return jax.tree_map(lambda x: x[0], gather(return_vals_reshaped))
+
+  def gather_metadata(features):
+    return_vals = (features["metadata"],)
+    return_vals_reshaped = reshape_for_pmap(return_vals)
     return jax.tree_map(lambda x: x[0], gather(return_vals_reshaped))
 
   if dataset.cardinality() < 0:
@@ -268,7 +275,9 @@ def compute_predictions_jax(
     features["mask"] = features["mask"].astype(np.int32)
 
     flatten = lambda array: array.reshape((-1,) + array.shape[2:])
-    predictions, metadatas, masks = jax.tree_map(flatten, infer(features))
+    predictions, masks = jax.tree_map(flatten, infer(features))
+    with jax.experimental.enable_x64():  # pytype: disable=module-attr
+      metadatas = jax.tree_map(flatten, gather_metadata(features))[0]
 
     time_end = time.time()
     time_delta_per_example = (time_end - time_start) / predictions.shape[0]
@@ -278,8 +287,17 @@ def compute_predictions_jax(
         if masks[i]:
           predictions_i = types.ModelPredictions(
               predictions=[predictions[i]], time_in_s=time_delta_per_example)
-          metadata_i = _slice_dictionary(metadatas, i)
-          is_leaf_fn = lambda x: isinstance(x, dict) and "__packed" in x
-          metadata_i_unpadded = jax.tree_map(
-              unpad_strings, metadata_i, is_leaf=is_leaf_fn)
+          with jax.experimental.enable_x64():  # pytype: disable=module-attr
+            metadata_i = _slice_dictionary(metadatas, i)
+            is_leaf_fn = lambda x: isinstance(x, dict) and "__packed" in x
+            metadata_i_unpadded = jax.tree_map(
+                unpad_strings, metadata_i, is_leaf=is_leaf_fn)
+          _check_element_id_is_an_int64(metadata_i_unpadded)
           yield predictions_i, metadata_i_unpadded
+
+
+def _check_element_id_is_an_int64(metadata):
+  """We check that the hash in metadata['element_id'] is an int64."""
+  assert_msg = ("metadata['element_id'] must be an int64, but "
+                f"received {metadata['element_id'].dtype!r} instead.")
+  assert metadata["element_id"].dtype == jax.numpy.int64, assert_msg
