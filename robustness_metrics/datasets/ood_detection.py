@@ -19,6 +19,7 @@
 import abc
 from typing import Callable, Optional
 
+from robustness_metrics.common import ops
 from robustness_metrics.common import types
 from robustness_metrics.datasets import base
 from robustness_metrics.datasets import tfds as rm_tfds
@@ -27,11 +28,13 @@ import tensorflow as tf
 
 def _set_label_to_one(feature):
   feature["label"] = tf.ones_like(feature["label"])
+  feature["metadata"]["label"] = tf.ones_like(feature["label"])
   return feature
 
 
 def _set_label_to_zero(feature):
   feature["label"] = tf.zeros_like(feature["label"])
+  feature["metadata"]["label"] = tf.zeros_like(feature["label"])
   return feature
 
 
@@ -61,6 +64,16 @@ def _concatenate(in_ds: tf.data.Dataset,
   return in_ds.map(format_in_ds).concatenate(out_ds.map(format_out_ds))
 
 
+def _make_element_id_unique(dataset_tag: str):
+  """We make element_id differ in the in- and out-of-distribution datasets."""
+  dataset_fingerprint = ops.fingerprint_int64(dataset_tag)
+  def _make_element_id_unique_fn(feature):
+    fingerprint = (feature["metadata"]["element_id"], dataset_fingerprint)
+    feature["metadata"]["element_id"] = ops.fingerprint_int64(fingerprint)
+    return feature
+  return _make_element_id_unique_fn
+
+
 class OodDetectionDataset(base.Dataset, metaclass=abc.ABCMeta):
   """A dataset made of a pair of one in- and one out-of-distribution datasets.
 
@@ -87,7 +100,11 @@ class OodDetectionDataset(base.Dataset, metaclass=abc.ABCMeta):
            ) -> tf.data.Dataset:
 
     in_ds = self.in_dataset.load(preprocess_fn)
+    in_ds = in_ds.map(_make_element_id_unique("in_ds"))
+
     out_ds = self.out_dataset.load(preprocess_fn)
+    out_ds = out_ds.map(_make_element_id_unique("out_ds"))
+
     return _concatenate(in_ds, out_ds)
 
 

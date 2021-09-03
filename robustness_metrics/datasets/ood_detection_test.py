@@ -75,9 +75,11 @@ class OodDetectionDatasetsTest(parameterized.TestCase, tf.test.TestCase):
       # the in- and out-of-distribution datasets can have different shapes.
       if batch_index * batch_size <= NUM_EXAMPLES:
         self.assertAllEqual(features["label"], [1] * batch_size)
+        self.assertAllEqual(features["metadata"]["label"], [1] * batch_size)
         self.assertEqual(features["image"].shape, in_ds_expected_shape)
       else:
         self.assertAllEqual(features["label"], [0] * batch_size)
+        self.assertAllEqual(features["metadata"]["label"], [0] * batch_size)
         self.assertEqual(features["image"].shape, out_ds_expected_shape)
 
   @parameterized.parameters([
