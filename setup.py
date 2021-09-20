@@ -34,10 +34,13 @@ setup(
         "tabulate",
         "tensorflow_datasets",
         "tensorflow_hub",
-        "tf-nightly",
-        "tfp-nightly",
     ],
-    extras_require={},
+    extras_require={
+        "tensorflow": [
+            "tf-nightly",
+            "tfp-nightly",
+        ],
+    },
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",

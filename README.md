@@ -22,6 +22,11 @@ or directly from the repository as
 pip install "git+https://github.com/google-research/robustness_metrics.git#egg=robustness_metrics"
 ```
 
+Note that `robustness_metrics` requires TensorFlow and TensorFlow Probability,
+but installing `robustness_metrics` does not automatically install them. You
+will need to install TensorFlow ( `tensorflow` or `tf-nightly`) and TensorFlow
+Probability (`tensorflow_probability` or `tfp-nightly`).
+
 There are three steps to evaluate a model: 1. import the model; 2. launch an
 experiment; and 3. examine results.
 
