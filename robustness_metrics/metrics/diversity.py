@@ -179,13 +179,6 @@ class AveragePairwiseDiversity(metrics_base.Metric):
     Returns:
       A dictionary mapping the name of each computed metric to its value.
     """
-    if self._dataset_size == 0:
-      return {
-          'disagreement': 0.0,
-          'average_kl': 0.0,
-          'cosine_similarity': 0.0,
-      }
-
     dataset_size = tf.cast(self._dataset_size, self._disagreement.dtype)
     avg_disagreement = self._disagreement / dataset_size
     if self._normalize_disagreement:
@@ -194,6 +187,17 @@ class AveragePairwiseDiversity(metrics_base.Metric):
 
     avg_kl = self._kl_divergence / dataset_size
     avg_cosine_distance = self._cosine_distance / dataset_size
+
+    # Results are NaN if queried prior to an update. Therefore return 0.
+    avg_disagreement = tf.cond(self._dataset_size == 0,
+                               lambda: 0.0,
+                               lambda: avg_disagreement)
+    avg_cosine_distance = tf.cond(self._dataset_size == 0,
+                                  lambda: 0.0,
+                                  lambda: avg_cosine_distance)
+    avg_cosine_distance = tf.cond(self._dataset_size == 0,
+                                  lambda: 0.0,
+                                  lambda: avg_cosine_distance)
     return {
         'disagreement': float(avg_disagreement),
         'average_kl': float(avg_kl),
