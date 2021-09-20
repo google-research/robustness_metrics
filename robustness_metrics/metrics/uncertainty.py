@@ -94,6 +94,14 @@ class _KerasECEMetric(tf.keras.metrics.Metric):
     self.counts = self.add_weight(
         "counts", shape=(num_bins,), initializer=tf.zeros_initializer)
 
+  def _compute_pred_labels(self, probabilities):
+    """Computes predicted labels given normalized class probabilities."""
+    return tf.math.argmax(probabilities, axis=-1)
+
+  def _compute_pred_probs(self, probabilities):
+    """Computes predicted probabilities given normalized class probabilities."""
+    return tf.math.reduce_max(probabilities, axis=-1)
+
   def update_state(self,
                    labels,
                    probabilities,
@@ -138,8 +146,8 @@ class _KerasECEMetric(tf.keras.metrics.Metric):
         lambda: tf.concat([1. - probabilities, probabilities], axis=-1)[:, -k:],
         lambda: probabilities)
 
-    pred_labels = tf.math.argmax(probabilities, axis=-1)
-    pred_probs = tf.math.reduce_max(probabilities, axis=-1)
+    pred_labels = self._compute_pred_labels(probabilities)
+    pred_probs = self._compute_pred_probs(probabilities)
     correct_preds = tf.math.equal(pred_labels,
                                   tf.cast(labels, pred_labels.dtype))
     correct_preds = tf.cast(correct_preds, self.dtype)
@@ -206,58 +214,94 @@ class ExpectedCalibrationError(metrics_base.KerasMetric):
 class _KerasOracleCollaborativeAccuracyMetric(_KerasECEMetric):
   """Oracle Collaborative Accuracy."""
 
-  def __init__(self, fraction=0.01, num_bins=100, name=None, dtype=None):
+  def __init__(self,
+               fraction=0.01,
+               num_bins=100,
+               binary_threshold=0.5,
+               name=None,
+               dtype=None):
     """Constructs an expected collaborative accuracy metric.
+
+    The class probabilities are computed using the argmax by default, but a
+    custom threshold can be used in the binary case. This binary threshold is
+    applied to the second (taken to be the positive) class.
 
     Args:
       fraction: the fraction of total examples to send to moderators.
       num_bins: Number of bins to maintain over the interval [0, 1].
+      binary_threshold: Threshold to use in the binary case.
       name: Name of this metric.
       dtype: Data type.
     """
     super(_KerasOracleCollaborativeAccuracyMetric, self).__init__(
-        num_bins, name, dtype)
+        num_bins=num_bins, name=name, dtype=dtype)
     self.fraction = fraction
-    self.collab_correct_sums = self.add_weight(
-        "collab_correct_sums",
-        shape=(num_bins,),
-        initializer=tf.zeros_initializer)
+    self.binary_threshold = binary_threshold
+
+  def _compute_pred_labels(self, probs):
+    """Computes predicted labels, using binary_threshold in the binary case.
+
+    Args:
+      probs: Tensor of shape [..., k] of normalized probabilities associated
+        with each of k classes.
+
+    Returns:
+      Predicted class labels.
+    """
+    return tf.cond(
+        tf.shape(probs)[-1] == 2,
+        lambda: tf.cast(probs[:, 1] > self.binary_threshold, tf.int64),
+        lambda: tf.math.argmax(probs, axis=-1))
+
+  def _compute_pred_probs(self, probs):
+    """Computes predicted probabilities associated with the predicted labels."""
+    pred_labels = self._compute_pred_labels(probs)
+    indices = tf.stack(
+        [tf.range(tf.shape(probs)[0], dtype=tf.int64), pred_labels], axis=1)
+    return tf.gather_nd(probs, indices)
+
+  def update_state(self,
+                   labels,
+                   probabilities,
+                   custom_binning_score=None,
+                   **kwargs):
+    if self.binary_threshold != 0.5 and not custom_binning_score:
+      # Bin by distance from threshold, i.e. send to the oracle in that order.
+      custom_binning_score = tf.abs(probabilities - self.binary_threshold)
+
+    super().update_state(
+        labels, probabilities, custom_binning_score, kwargs=kwargs)
 
   def result(self):
-    """Computes the expected calibration error."""
-    num_total_example = tf.reduce_sum(self.counts)
+    """Returns the expected calibration error."""
+    num_total_examples = tf.reduce_sum(self.counts)
     num_oracle_examples = tf.cast(
-        int(num_total_example * self.fraction), self.dtype)
-    # TODO(lzi): compute the expected number of accurate predictions
-    collab_correct_sums = []
-    num_oracle_examples_so_far = 0.0
-    for i in range(self.num_bins):
-      cur_bin_counts = self.counts[i]
-      cur_bin_num_correct = self.correct_sums[i]
-      if num_oracle_examples_so_far + cur_bin_counts <= num_oracle_examples:
-        # Send all examples in the current bin to the oracle.
-        cur_bin_num_correct = cur_bin_counts
-        num_oracle_examples_so_far += cur_bin_num_correct
-      elif num_oracle_examples_so_far < num_oracle_examples:
-        # Send num_correct_oracle examples in the current bin to oracle,
-        # and have model to predict the rest.
-        cur_bin_accuracy = cur_bin_num_correct / cur_bin_counts
-        num_correct_oracle = tf.cast(
-            num_oracle_examples - num_oracle_examples_so_far, self.dtype)
-        num_correct_model = (cur_bin_counts -
-                             num_correct_oracle) * cur_bin_accuracy
-        cur_bin_num_correct = num_correct_oracle + num_correct_model
-        num_oracle_examples_so_far = num_oracle_examples
+        tf.floor(num_total_examples * self.fraction), self.dtype)
 
-      collab_correct_sums.append(cur_bin_num_correct)
+    non_empty_bin_mask = self.counts != 0
+    counts = tf.boolean_mask(self.counts, non_empty_bin_mask)
+    correct_sums = tf.boolean_mask(self.correct_sums, non_empty_bin_mask)
+    cum_counts = tf.cumsum(counts)
 
-    self.collab_correct_sums = tf.stack(collab_correct_sums)
+    # Identify the final bin the oracle sees examples from, and the remaining
+    # number of predictions it can make on that bin.
+    final_oracle_bin = tf.cast(
+        tf.argmax(cum_counts > num_oracle_examples), tf.int32)
+    oracle_predictions_used = tf.cast(
+        tf.cond(final_oracle_bin > 0, lambda: cum_counts[final_oracle_bin - 1],
+                lambda: 0.), self.dtype)
+    remaining_oracle_predictions = num_oracle_examples - oracle_predictions_used
 
-    non_empty = tf.math.not_equal(self.counts, 0)
-    counts = tf.boolean_mask(self.counts, non_empty)
-    collab_correct_sums = tf.boolean_mask(self.collab_correct_sums, non_empty)
+    expected_correct_final_bin = (
+        correct_sums[final_oracle_bin] / counts[final_oracle_bin] *
+        (counts[final_oracle_bin] - remaining_oracle_predictions))
+    expected_correct_after_final_bin = tf.reduce_sum(
+        correct_sums[final_oracle_bin + 1:])
 
-    return tf.reduce_sum(collab_correct_sums) / tf.reduce_sum(counts)
+    expected_correct = (
+        num_oracle_examples + expected_correct_final_bin +
+        expected_correct_after_final_bin)
+    return expected_correct / num_total_examples
 
 
 class _KerasOracleCollaborativeAUCMetric(tf.keras.metrics.AUC):
