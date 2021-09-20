@@ -57,7 +57,6 @@ def create(model_dir: str,
   elif method in ("batchensemble", "mimo"):
     ensemble_size = kwargs.pop("ensemble_size")
   elif method == "sngp":
-    per_core_batch_size = kwargs.pop("per_core_batch_size")
     gp_mean_field_factor = kwargs.pop("gp_mean_field_factor")
   elif method == "deterministic":
     use_mixup_rescaling = kwargs.pop("use_mixup_rescaling", False)
@@ -88,10 +87,10 @@ def create(model_dir: str,
       probs = tf.reduce_mean(probs, axis=0)
     elif method == "sngp":
       logits = model(images, training=False)
-      if isinstance(logits, tuple):
+      if isinstance(logits, (tuple, list)):
         logits, covmat = logits
       else:
-        covmat = tf.eye(per_core_batch_size)
+        covmat = None
       if use_bfloat16:
         logits = tf.cast(logits, tf.float32)
 
