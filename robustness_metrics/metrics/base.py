@@ -133,6 +133,20 @@ class FullBatchMetric(Metric):
     self._predictions.append(predictions)
     self._labels.append(label)
 
+  def add_batch(self,
+                model_predictions,
+                **metadata: Optional[Dict[Text, Any]]) -> None:
+    # If multiple predictions are present for a datapoint, average them:
+    predictions_stacked = np.stack(model_predictions)
+    try:
+      label = metadata["label"]
+    except KeyError:
+      raise ValueError("No labels in the metadata, provided fields: "
+                       f"{metadata.keys()!r}")
+    predictions = np.mean(predictions_stacked, axis=0).tolist()
+    self._predictions.extend(predictions)
+    self._labels.extend(label)
+
 
 class KerasMetric(Metric):
   """Wraps a KerasMetric to accept ModelPredictions.
