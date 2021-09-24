@@ -18,6 +18,7 @@
 
 import abc
 import collections
+import operator
 from typing import Any, Dict, Optional, Text
 
 import numpy as np
@@ -56,24 +57,35 @@ class Metric(metaclass=abc.ABCMeta):
     Args:
       model_predictions: The predictions that the model made on an element
         from the dataset. Has an attribute `.predictions` with shape
-        [num_models, ...] where [...] is the shape of a single prediction.
+        [num_predictions, ...] where [...] is the shape of a single prediction.
       metadata: The metadata for the example.
     """
 
   def add_batch(self,
                 model_predictions,
-                **metadata: Optional[Dict[Text, Any]]) -> None:
+                **metadata: Optional[types.Features]) -> None:
     """Adds a batch of predictions for a batch of examples.
 
     Args:
-      model_predictions: The batch of prediction. Tensor-like with shape
-        [num_models, batch_size, ...] where [...] is the shape of a single
-        prediction.
-      **metadata: The batch metadata, possibly including `labels` which is the
-        batch of labels, one for each example in the batch.
+      model_predictions: The batch of predictions. Array with shape [batch_size,
+        ...] where [...] is the shape of a single prediction. Some metric
+        subclasses may require a shape [num_predictions, batch_size, ...] where
+        they evaluate over multiple predictions per example.
+      **metadata: Metadata for the batch of predictions. Each metadata kwarg,
+        for example `label`, should be batched and have a leading axis of size
+        `batch_size`.
     """
-    raise NotImplementedError(
-        "Batched predictions not implemented for this metric.")
+    def _recursive_map(fn, dict_or_val):
+      if isinstance(dict_or_val, dict):
+        return {k: _recursive_map(fn, v) for k, v in dict_or_val.items()}
+      else:
+        return fn(dict_or_val)
+
+    for i, predictions_i in enumerate(np.array(model_predictions)):
+      metadata_i = _recursive_map(operator.itemgetter(i), metadata)
+      self.add_predictions(
+          types.ModelPredictions(predictions=[predictions_i]),
+          metadata_i)
 
   @abc.abstractmethod
   def result(self) -> Dict[Text, float]:
@@ -89,9 +101,10 @@ get = registry.get
 
 
 def _map_labelset(predictions, label, appearing_classes):
-  assert len(predictions.shape) == 2
+  np_predictions = np.array(predictions)
+  assert len(np_predictions.shape) == 2
   if appearing_classes:
-    predictions = predictions[:, appearing_classes]
+    predictions = np_predictions[:, appearing_classes]
     predictions /= np.sum(predictions, axis=-1, keepdims=True)
     label = appearing_classes.index(label)
   return predictions, label
@@ -119,33 +132,19 @@ class FullBatchMetric(Metric):
     except KeyError:
       pass
 
-    # If multiple predictions are present for a datapoint, average them:
-    predictions_stacked = np.stack(model_predictions.predictions)
     try:
       label = metadata["label"]
     except KeyError:
       raise ValueError("No labels in the metadata, provided fields: "
                        f"{metadata.keys()!r}")
+    predictions = model_predictions.predictions
     if self._use_dataset_labelset:
-      predictions_stacked, label = _map_labelset(
-          predictions_stacked, label, self._appearing_classes)
-    predictions = np.mean(predictions_stacked, axis=0)
+      predictions, label = _map_labelset(
+          predictions, label, self._appearing_classes)
+    # If multiple predictions are present for a datapoint, average them:
+    predictions = np.mean(predictions, axis=0)
     self._predictions.append(predictions)
     self._labels.append(label)
-
-  def add_batch(self,
-                model_predictions,
-                **metadata: Optional[Dict[Text, Any]]) -> None:
-    # If multiple predictions are present for a datapoint, average them:
-    predictions_stacked = np.stack(model_predictions)
-    try:
-      label = metadata["label"]
-    except KeyError:
-      raise ValueError("No labels in the metadata, provided fields: "
-                       f"{metadata.keys()!r}")
-    predictions = np.mean(predictions_stacked, axis=0).tolist()
-    self._predictions.extend(predictions)
-    self._labels.extend(label)
 
 
 class KerasMetric(Metric):
@@ -222,19 +221,19 @@ class KerasMetric(Metric):
     except KeyError:
       pass
 
-    stacked_predictions = np.stack(model_predictions.predictions)
     if "label" not in metadata:
       raise ValueError(
           "KerasMetric expects a `label` in the metadata."
           f"Available fields are: {metadata.keys()!r}")
 
+    predictions = model_predictions.predictions
     if self._use_dataset_labelset:
       predictions, label = _map_labelset(
-          stacked_predictions, metadata["label"], self._appearing_classes)
+          predictions, metadata["label"], self._appearing_classes)
       self._add_prediction(predictions, label, self._average_predictions)
     else:
       self._add_prediction(
-          stacked_predictions, metadata["label"], self._average_predictions)
+          predictions, metadata["label"], self._average_predictions)
 
   def add_batch(self,
                 model_predictions,
@@ -444,10 +443,10 @@ class TopKAccuracy(Metric):
     self._mean.update_state(tf.reduce_mean(tf.cast(top_k_correct, tf.float32)))
 
   def add_predictions(self, model_predictions, metadata):
-    stacked_predictions = np.stack(model_predictions.predictions)
+    predictions = model_predictions.predictions
     self._add_prediction(
         metadata["labels_multi_hot"],
-        tf.reduce_mean(stacked_predictions, axis=0))
+        tf.reduce_mean(predictions, axis=0))
 
   def add_batch(self,
                 model_predictions,

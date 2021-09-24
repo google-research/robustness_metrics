@@ -431,22 +431,19 @@ class AddBatchTest(tf.test.TestCase):
 
   def test_single_prediction(self):
     metric = rm.metrics.base.get("accuracy")()
-    rm.metrics.add_batch(metric, [[.45, .55]], label=[1], element_id=[1])
+    metric.add_batch([[.45, .55]], label=[1], element_id=[1])
     self.assertDictsAlmostEqual(metric.result(), {"accuracy": 1.})
 
   def test_single_prediction_labelset(self):
     metric = rm.metrics.get(
         "accuracy(use_dataset_labelset=True)",
         rm.datasets.base.DatasetInfo(num_classes=3, appearing_classes=[0, 1]))
-    rm.metrics.add_batch(metric, [[.45, .55, .3]], label=[1], element_id=[1])
+    metric.add_batch([[.45, .55, .3]], label=[1], element_id=[1])
     self.assertDictsAlmostEqual(metric.result(), {"accuracy": 1.})
 
   def test_multiple_predictions(self):
     metric = rm.metrics.base.get("accuracy")()
-    rm.metrics.add_batch(metric,
-                         [[.45, .55], [.51, .49]],
-                         label=[1, 0],
-                         element_id=[0, 1])
+    metric.add_batch([[.45, .55], [.51, .49]], label=[1, 0], element_id=[0, 1])
     self.assertDictsAlmostEqual(metric.result(), {"accuracy": 1.})
 
 

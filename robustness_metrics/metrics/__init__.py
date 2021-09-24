@@ -32,8 +32,7 @@ results = model.results()
 print(f"Results: {results!r}")
 ```
 """
-import operator
-from typing import Text, Type
+from typing import Optional, Text, Type
 
 from robustness_metrics.common import types
 from robustness_metrics.metrics import base
@@ -93,38 +92,6 @@ def get(metric_name: Text, dataset_info=None):
   return base.registry.get_instance(metric_name, dataset_info=dataset_info)
 
 
-def _recursive_map(fn, dict_or_val):
-  if isinstance(dict_or_val, dict):
-    return {k: _recursive_map(fn, v) for k, v in dict_or_val.items()}
-  else:
-    return fn(dict_or_val)
-
-
-def add_batch(metric: base.Metric, predictions, **metadata):
-  """Add a batch of predictions.
-
-  Example usage:
-  ```
-  metric = rm.metrics.get("accuracy")()
-  rm.metrics.add_batch(metric, [[.6, .4], [.9, .1]], label=[1, 0])
-  metric.result()  # Returns {"accuracy": 0.5}.
-  ```
-
-  Args:
-    metric: The metric where the predictions will be added.
-    predictions: A 2d array (list or numpy array), containing one prediction per
-      row.
-    **metadata:
-      The keys and values that will be used to construct the metadata. It can
-      be any (arbitrarily) nested dictionary, with 2d arrays (list or numpy
-      arrays) leaves, each holding one example per row.
-  """
-  for i, predictions_i in enumerate(predictions):
-    metadata_i = _recursive_map(operator.itemgetter(i), metadata)
-    metric.add_predictions(types.ModelPredictions(predictions=[predictions_i]),
-                           metadata_i)
-
-
 __all__ = [
     "Accuracy",
     "AdaptiveCalibrationError",
@@ -161,7 +128,6 @@ __all__ = [
     "ThresholdedAdaptiveCalibrationError",
     "TimingStatsMetric",
     "TopKAccuracy",
-    "add_batch",
     "base",
     "get",
     "registry",

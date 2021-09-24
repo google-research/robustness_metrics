@@ -288,7 +288,7 @@ class CRPSTest(tf.test.TestCase):
     for _ in range(ntrue_samples):
       labels = tf.random.normal((nspacing,))
       metric = rm.metrics.get("crps", _get_info(None))
-      rm.metrics.add_batch(metric, predictive_samples, label=labels)
+      metric.add_batch(predictive_samples, label=labels)
       crps_sample = metric.result()["crps"]
       crps_samples.append(crps_sample)
 
@@ -583,9 +583,8 @@ class BrierDecompositionTest(parameterized.TestCase, tf.test.TestCase):
     labels = tf.random.uniform((nsamples,), maxval=nlabels, dtype=tf.int32)
 
     metric = rm.metrics.get("brier_decomposition", _get_info(nlabels))
-    rm.metrics.add_batch(metric,
-                         tf.nn.softmax(logits, axis=-1).numpy(),
-                         label=labels.numpy())
+    metric.add_batch(tf.nn.softmax(logits, axis=-1).numpy(),
+                     label=labels.numpy())
     result = metric.result()
     uncertainty = result["uncertainty"]
     resolution = result["resolution"]
@@ -596,9 +595,8 @@ class BrierDecompositionTest(parameterized.TestCase, tf.test.TestCase):
 
     # Estimate Brier score directly-
     metric = rm.metrics.get("brier", _get_info(nlabels))
-    rm.metrics.add_batch(metric,
-                         tf.nn.softmax(logits, axis=-1).numpy(),
-                         label=labels.numpy())
+    metric.add_batch(tf.nn.softmax(logits, axis=-1).numpy(),
+                     label=labels.numpy())
     brier_direct = metric.result()["brier"]
 
     logging.info("Brier, n=%d k=%d T=%.2f, Unc %.4f - Res %.4f + Rel %.4f = "
@@ -625,7 +623,7 @@ class SemiParametricCalibrationErrorTest(tf.test.TestCase):
     labels = (np.random.rand(n) <= calibration_error).astype(np.float)
     metric = rm.metrics.get("semiparametric_ce(smoothing='spline')",
                             _get_info(None))
-    rm.metrics.add_batch(metric, probs, label=labels)
+    metric.add_batch(probs, label=labels)
     est = metric.result()["ce"]
     # est = ce.rms_calibration_error(probs, labels)
     self.assertGreaterEqual(est, 0)
@@ -639,7 +637,7 @@ class SemiParametricCalibrationErrorTest(tf.test.TestCase):
     labels = (np.random.rand(n) <= calibration_error).astype(np.float)
     metric = rm.metrics.get("semiparametric_ce(smoothing='spline')",
                             _get_info(None))
-    rm.metrics.add_batch(metric, probs, label=labels)
+    metric.add_batch(probs, label=labels)
     est = metric.result()["ce"]
     self.assertGreaterEqual(est, 0)
     self.assertLessEqual(est, 1)
@@ -652,7 +650,7 @@ class SemiParametricCalibrationErrorTest(tf.test.TestCase):
     labels = (np.random.rand(n) <= calibration_error).astype(np.float)
     metric = rm.metrics.get("semiparametric_ce_ci(smoothing='spline')",
                             _get_info(None))
-    rm.metrics.add_batch(metric, probs, label=labels)
+    metric.add_batch(probs, label=labels)
     results = metric.result()
     self.assertGreaterEqual(results["low"], 0)
     self.assertLessEqual(results["low"], 1)
@@ -671,7 +669,7 @@ class SemiParametricCalibrationErrorTest(tf.test.TestCase):
         _get_info(None),
         smoothing="spline",
         fold_generator=sklearn.model_selection.KFold(5, shuffle=True))
-    rm.metrics.add_batch(metric, probs, label=calibration_error)
+    metric.add_batch(probs, label=calibration_error)
     est = metric.result()["ce"]
     self.assertGreaterEqual(est, 0)
     self.assertLessEqual(est, 1)
@@ -733,7 +731,7 @@ class GeneralCalibrationErrorTest(parameterized.TestCase, tf.test.TestCase):
         _get_info(3),
         num_bins=30, binning_scheme="even",
         class_conditional=False, max_prob=True, norm="l1", threshold=0.)
-    rm.metrics.add_batch(metric, probs, label=labels)
+    metric.add_batch(probs, label=labels)
     self.assertAlmostEqual(metric.result()["gce"], 0.412713502)
 
   def test_sweep(self):
@@ -746,7 +744,7 @@ class GeneralCalibrationErrorTest(parameterized.TestCase, tf.test.TestCase):
     metric = rm.metrics.GeneralCalibrationError(
         _get_info(3), num_bins=None, binning_scheme="even",
         class_conditional=False, max_prob=True, norm="l1", threshold=0.)
-    rm.metrics.add_batch(metric, probs, label=labels)
+    metric.add_batch(probs, label=labels)
     self.assertAlmostEqual(metric.result()["gce"], 0.412713502)
 
   def test_binary_1d(self):
@@ -755,7 +753,7 @@ class GeneralCalibrationErrorTest(parameterized.TestCase, tf.test.TestCase):
     metric = rm.metrics.GeneralCalibrationError(
         _get_info(2), num_bins=30, binning_scheme="even",
         class_conditional=False, max_prob=True, norm="l1", threshold=0.)
-    rm.metrics.add_batch(metric, probs, label=labels)
+    metric.add_batch(probs, label=labels)
     self.assertAlmostEqual(metric.result()["gce"], 0.18124999999999997)
 
   def test_binary_2d(self):
@@ -765,7 +763,7 @@ class GeneralCalibrationErrorTest(parameterized.TestCase, tf.test.TestCase):
     metric = rm.metrics.GeneralCalibrationError(
         _get_info(2), num_bins=30, binning_scheme="even",
         class_conditional=False, max_prob=True, norm="l1", threshold=0.)
-    rm.metrics.add_batch(metric, probs, label=labels)
+    metric.add_batch(probs, label=labels)
     self.assertAlmostEqual(metric.result()["gce"], 0.18124999999999997)
 
   def test_correctness_ece(self):
@@ -799,7 +797,7 @@ class GeneralCalibrationErrorTest(parameterized.TestCase, tf.test.TestCase):
         correct_ece += bin_counts[i] / n * abs(bin_accs[i] - bin_confs[i])
 
     metric_ece = rm.metrics.get("ece", _get_info(2))
-    rm.metrics.add_batch(metric_ece, pred_probs, label=[int(i) for i in labels])
+    metric_ece.add_batch(pred_probs, label=[int(i) for i in labels])
     self.assertAlmostEqual(correct_ece, metric_ece.result()["ece"])
 
   def test_correctness_rmsce(self):
@@ -834,8 +832,7 @@ class GeneralCalibrationErrorTest(parameterized.TestCase, tf.test.TestCase):
     correct_rmsce = np.sqrt(correct_ece)
 
     metric_rmsce = rm.metrics.get("rmsce", _get_info(2))
-    rm.metrics.add_batch(
-        metric_rmsce, pred_probs, label=[int(i) for i in labels])
+    metric_rmsce.add_batch(pred_probs, label=[int(i) for i in labels])
 
     self.assertAlmostEqual(correct_rmsce, metric_rmsce.result()["gce"])
 
@@ -871,7 +868,7 @@ class GeneralCalibrationErrorTest(parameterized.TestCase, tf.test.TestCase):
         binning_scheme=binning_scheme, max_prob=max_probs,
         class_conditional=class_conditional, threshold=threshold, norm=norm,
         num_bins=num_bins)
-    rm.metrics.add_batch(metric, probs, label=labels)
+    metric.add_batch(probs, label=labels)
     calibration_error = metric.result()["gce"]
     self.assertGreaterEqual(calibration_error, 0)
     self.assertLessEqual(calibration_error, 1)
