@@ -15,8 +15,7 @@
 
 """Information criteria."""
 
-from typing import Dict, Text
-
+from typing import Dict, Optional, Text
 from robustness_metrics.common import types
 from robustness_metrics.metrics import base as metrics_base
 import tensorflow as tf
@@ -52,20 +51,21 @@ class EnsembleCrossEntropy(metrics_base.Metric):
     self._aggregate = aggregate
 
   def add_predictions(self,
-                      model_predictions: types.ModelPredictions,
+                      model_predictions: types.Array,
                       metadata: types.Features) -> None:
-    self.add_batch(
-        model_predictions.predictions,
-        labels=metadata['labels'])
+    self.add_batch([model_predictions], labels=[metadata['labels']])
 
-  def add_batch(self, model_predictions, *, labels=None) -> None:
+  def add_batch(self,
+                model_predictions: types.Array,
+                *,
+                labels: Optional[types.Array] = None) -> None:
     """Adds a batch of predictions for a batch of examples.
 
     Args:
-      model_predictions: logits of shape [ensemble_size, ..., num_classes]. Note
-        that unlike some other metrics, this metric takes unnormalized logits
-        instead of probabilities.
-      labels: tf.Tensor of shape [...].
+      model_predictions: logits of shape [batch_size, num_predictions, ...].
+        Note that unlike some other metrics, this metric takes unnormalized
+        logits instead of probabilities.
+      labels: Array of shape [...].
     """
     self._logits.append(model_predictions)
     self._labels.append(labels)
@@ -118,20 +118,21 @@ class GibbsCrossEntropy(metrics_base.Metric):
     self._aggregate = aggregate
 
   def add_predictions(self,
-                      model_predictions: types.ModelPredictions,
+                      model_predictions: types.Array,
                       metadata: types.Features) -> None:
-    self.add_batch(
-        model_predictions.predictions,
-        labels=metadata['labels'])
+    self.add_batch([model_predictions], labels=[metadata['labels']])
 
-  def add_batch(self, model_predictions, *, labels=None) -> None:
+  def add_batch(self,
+                model_predictions: types.Array,
+                *,
+                labels: Optional[types.Array] = None) -> None:
     """Adds a batch of predictions for a batch of examples.
 
     Args:
       model_predictions: logits of shape [ensemble_size, ..., num_classes]. Note
         that unlike some other metrics, this metric takes unnormalized logits
         instead of probabilities.
-      labels: tf.Tensor of shape [...].
+      labels: Array of shape [...].
     """
     self._logits.append(model_predictions)
     self._labels.append(labels)

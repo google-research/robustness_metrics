@@ -18,9 +18,8 @@
 import collections
 import importlib
 import math
-import time
 import types as pytypes
-from typing import Any, Callable, Iterator, Tuple, Sequence, Optional, Dict
+from typing import Any, Callable, Iterator, Tuple, Sequence, Optional, Dict, Union
 
 from absl import logging
 import clu.deterministic_data as clu_dd
@@ -112,7 +111,10 @@ def _slice_dictionary(tensor_dict, i: int):
   return jax.tree_map(lambda x: x[i], tensor_dict)
 
 
-def materialize(strategy: tf.distribute.Strategy, value_or_nested_dict):
+def materialize(
+    strategy: tf.distribute.Strategy,
+    value_or_nested_dict
+) -> Union[Dict[Any, np.ndarray], np.ndarray]:
   """Materializes locally (possibly nested dict with) PerReplica values.
 
   Args:
@@ -138,7 +140,7 @@ def materialize(strategy: tf.distribute.Strategy, value_or_nested_dict):
 def compute_predictions(
     model: PredictionModel, dataset: tf.data.Dataset,
     strategy: tf.distribute.Strategy, batch_size: int
-) -> Iterator[Tuple[types.ModelPredictions, types.Features]]:
+) -> Iterator[Tuple[np.ndarray, types.Features]]:
   """Yield the predictions of the model on the given dataset.
 
   Args:
@@ -159,7 +161,6 @@ def compute_predictions(
     dataset = dataset.with_options(options)
 
   for features in strategy.experimental_distribute_dataset(dataset):
-    time_start = time.time()
     if isinstance(strategy, tf.distribute.experimental.TPUStrategy):
       # TODO(josipd): Figure this out better. We can't easily filter,
       #               as they are PerReplica values, not tensors.
@@ -168,20 +169,16 @@ def compute_predictions(
       features_model = features
     predictions = materialize(strategy,
                               strategy.run(model, args=(features_model,)))
-    time_end = time.time()
-    time_delta_per_example = (time_end - time_start) / predictions.shape[0]
     metadatas = materialize(strategy, features["metadata"])
-    for i in range(predictions.shape[0]):
-      model_predictions = types.ModelPredictions(
-          predictions=[predictions[i]],
-          time_in_s=time_delta_per_example)
+    for i in range(predictions.shape[0]):  # pytype: disable=attribute-error
+      model_predictions = predictions[i]
       metadata_i = _slice_dictionary(metadatas, i)
       yield model_predictions, metadata_i
 
 
 def compute_predictions_jax(
     model: PredictionModel, dataset: tf.data.Dataset, batch_size: int
-)-> Iterator[Tuple[types.ModelPredictions, types.Features]]:
+)-> Iterator[Tuple[np.ndarray, types.Features]]:
   """Yield the predictions of the given JAX model on the given dataset.
 
   Note that this also works in multi-host configurations. You have to make
@@ -270,7 +267,6 @@ def compute_predictions_jax(
   dataset_shard = dataset.shard(jax.host_count(), jax.host_id())
   logging.info("Batches per host: %d", dataset_shard.cardinality())
   for features in dataset_shard.as_numpy_iterator():
-    time_start = time.time()
     # There is a bug in XLA, the following fails for int8s.
     features["mask"] = features["mask"].astype(np.int32)
 
@@ -279,14 +275,11 @@ def compute_predictions_jax(
     with jax.experimental.enable_x64():  # pytype: disable=module-attr
       metadatas = jax.tree_map(flatten, gather_metadata(features))[0]
 
-    time_end = time.time()
-    time_delta_per_example = (time_end - time_start) / predictions.shape[0]
     predictions = np.asarray(predictions)  # Materialize.
     if jax.host_id() == 0:
       for i in range(predictions.shape[0]):
         if masks[i]:
-          predictions_i = types.ModelPredictions(
-              predictions=[predictions[i]], time_in_s=time_delta_per_example)
+          predictions_i = predictions[i]
           with jax.experimental.enable_x64():  # pytype: disable=module-attr
             metadata_i = _slice_dictionary(metadatas, i)
             is_leaf_fn = lambda x: isinstance(x, dict) and "__packed" in x

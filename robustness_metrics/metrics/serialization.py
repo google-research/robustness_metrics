@@ -17,7 +17,7 @@
 """Metrics that take predictions and serializes them."""
 
 import json
-from typing import Iterator, Tuple
+from typing import Dict, Iterator, Text, Tuple
 from robustness_metrics.common import types
 from robustness_metrics.metrics import base as metrics_base
 import tensorflow as tf
@@ -37,12 +37,12 @@ class Serializer(metrics_base.Metric):
     self._record_writer = None
 
   def add_predictions(self,
-                      model_predictions: types.ModelPredictions,
+                      model_predictions: types.Array,
                       metadata: types.Features) -> None:
     if self._record_writer is None:
       self._record_writer = tf.io.TFRecordWriter(self._path)
     serialized_predictions = tf.io.serialize_tensor(
-        tf.convert_to_tensor(model_predictions.predictions, dtype=tf.float32))
+        tf.convert_to_tensor(model_predictions, dtype=tf.float32))
     serialized_metadata = {}
     for key, value in metadata.items():
       if isinstance(value, tf.Tensor):
@@ -62,7 +62,7 @@ class Serializer(metrics_base.Metric):
     }))
     self._record_writer.write(tf_example.SerializeToString())
 
-  def result(self):
+  def result(self) -> Dict[Text, Text]:
     return {"path": self._path}
 
   def flush(self):
@@ -72,7 +72,7 @@ class Serializer(metrics_base.Metric):
 
   def read_predictions(
       self
-  ) -> Iterator[Tuple[types.ModelPredictions, types.Features]]:
+  ) -> Iterator[Tuple[types.Array, types.Features]]:
     """Reads path in order to yield each prediction and metadata."""
 
     def parse(features_serialized):
@@ -93,8 +93,7 @@ class Serializer(metrics_base.Metric):
         tf.data.experimental.AutoShardPolicy.DATA)
     dataset = dataset.with_options(options)
     for example in dataset:
-      prediction = types.ModelPredictions(
-          predictions=example["predictions"].numpy())
+      prediction = example["predictions"].numpy()
       metadata = json.loads(example["metadata"].numpy())
       # Apply a special case to lists of size 1. We need to adjust for the fact
       # that int-casting a Tensor with shape [1] works (this may be the original

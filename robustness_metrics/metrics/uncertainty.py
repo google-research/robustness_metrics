@@ -876,24 +876,19 @@ class OracleCollaborativeAccuracy(metrics_base.KerasMetric):
 
   @tf.function
   def _add_prediction(self,
-                      predictions,
-                      label,
-                      average_predictions,
-                      custom_binning_score=None):
+                      predictions: types.Array,
+                      label: types.Array,
+                      custom_binning_score: Optional[Sequence[float]] = None):
     """Feeds the given label and prediction to the underlying Keras metric.
 
     Args:
       predictions: The batch of predictions, one for each example in the batch.
       label: The batch of labels, one for each example in the batch.
-      average_predictions: If set, when multiple predictions are present for
-        a dataset element, they will be averaged before processing.
-      custom_binning_score: (Optional) Custom score to use for binning
+      custom_binning_score: Custom score to use for binning
         predictions, one for each example in the batch. If not specified, the
         default is to bin by predicted probability. The elements of
         custom_binning_score are expected to all be in [0, 1].
     """
-    if average_predictions:
-      predictions = tf.reduce_mean(predictions, axis=0, keepdims=True)
     if self._one_hot:
       label = tf.one_hot(label, self._num_classes)
     if self._take_argmax:
@@ -905,10 +900,11 @@ class OracleCollaborativeAccuracy(metrics_base.KerasMetric):
       self._metric.update_state(
           label, predictions, custom_binning_score=custom_binning_score)
 
-  def add_predictions(self, model_predictions: types.ModelPredictions,
-                      **metadata) -> None:
+  def add_predictions(self,
+                      model_predictions: types.Array,
+                      **metadata: Optional[types.Features]) -> None:
     try:
-      element_id = int(metadata["element_id"])
+      element_id = int(metadata["element_id"])  # pytype: disable=wrong-arg-types
       if element_id in self._ids_seen:
         raise ValueError(
             "KerasMetric does not support reporting the same id multiple "
@@ -918,32 +914,32 @@ class OracleCollaborativeAccuracy(metrics_base.KerasMetric):
     except KeyError:
       pass
 
-    stacked_predictions = np.stack(model_predictions.predictions)
     if "label" not in metadata:
       raise ValueError("KerasMetric expects a `label` in the metadata."
                        f"Available fields are: {metadata.keys()!r}")
     custom_binning_score = metadata.get("custom_binning_score")
 
+    # Add a size-1 batch axis to be compatible with Keras metrics.
+    predictions = np.expand_dims(model_predictions, axis=0)
     if self._use_dataset_labelset:
       # pylint: disable=protected-access
-      predictions, label = metrics_base._map_labelset(stacked_predictions,
+      predictions, label = metrics_base._map_labelset(predictions,
                                                       metadata["label"],
                                                       self._appearing_classes)
       # pylint: enable=protected-access
       self._add_prediction(
           predictions,
           label,
-          self._average_predictions,
           custom_binning_score=custom_binning_score)
     else:
       self._add_prediction(
-          stacked_predictions,
+          predictions,
           metadata["label"],
-          self._average_predictions,
           custom_binning_score=custom_binning_score)
 
-  def add_batch(self, model_predictions,
-                **metadata: Optional[Dict[str, Any]]) -> None:
+  def add_batch(self,
+                model_predictions: types.Array,
+                **metadata: Optional[types.Features]) -> None:
     """Adds a batch of predictions for a batch of examples.
 
     Args:
@@ -957,7 +953,6 @@ class OracleCollaborativeAccuracy(metrics_base.KerasMetric):
     # Note that even though the labels are really over a batch of predictions,
     # we use the kwarg "label" to be consistent with the other functions that
     # use the singular name.
-    self._average_predictions = False
     label = metadata["label"]
     custom_binning_score = metadata.get("custom_binning_score")
     if self._use_dataset_labelset:
@@ -970,7 +965,6 @@ class OracleCollaborativeAccuracy(metrics_base.KerasMetric):
     self._add_prediction(
         predictions=model_predictions,
         label=label,
-        average_predictions=False,
         custom_binning_score=custom_binning_score)
 
 
@@ -1111,13 +1105,10 @@ class CalibrationAUC(metrics_base.KerasMetric):
 
   @tf.function
   def _add_prediction(self,
-                      predictions,
-                      label,
-                      average_predictions,
-                      confidence=None):
+                      predictions: types.Array,
+                      label: types.Array,
+                      confidence: Optional[Sequence[float]] = None):
     """Feeds the given label and prediction to the underlying Keras metric."""
-    if average_predictions:
-      predictions = tf.reduce_mean(predictions, axis=0, keepdims=True)
     if self._one_hot:
       label = tf.one_hot(label, self._num_classes)
     if self._take_argmax:
@@ -1129,10 +1120,11 @@ class CalibrationAUC(metrics_base.KerasMetric):
       self._metric.update_state(
           label, predictions, confidence=confidence)
 
-  def add_predictions(self, model_predictions: types.ModelPredictions,
-                      **metadata) -> None:
+  def add_predictions(self,
+                      model_predictions: types.Array,
+                      **metadata: Optional[types.Features]) -> None:
     try:
-      element_id = int(metadata["element_id"])
+      element_id = int(metadata["element_id"])  # pytype: disable=wrong-arg-types
       if element_id in self._ids_seen:
         raise ValueError(
             "KerasMetric does not support reporting the same id multiple "
@@ -1142,30 +1134,30 @@ class CalibrationAUC(metrics_base.KerasMetric):
     except KeyError:
       pass
 
-    stacked_predictions = np.stack(model_predictions.predictions)
     if "label" not in metadata:
       raise ValueError("KerasMetric expects a `label` in the metadata."
                        f"Available fields are: {metadata.keys()!r}")
     confidence = metadata.get("confidence")
 
+    # Add a size-1 batch axis to be compatible with Keras metrics.
+    predictions = np.expand_dims(model_predictions, axis=0)
     if self._use_dataset_labelset:
       # pylint: disable=protected-access
-      predictions, label = metrics_base._map_labelset(stacked_predictions,
+      predictions, label = metrics_base._map_labelset(predictions,
                                                       metadata["label"],
                                                       self._appearing_classes)
       # pylint: enable=protected-access
       self._add_prediction(predictions,
                            label,
-                           self._average_predictions,
                            confidence=confidence)
     else:
-      self._add_prediction(stacked_predictions,
+      self._add_prediction(predictions,
                            metadata["label"],
-                           self._average_predictions,
                            confidence=confidence)
 
-  def add_batch(self, model_predictions,
-                **metadata: Optional[Dict[str, Any]]) -> None:
+  def add_batch(self,
+                model_predictions: types.Array,
+                **metadata: Optional[types.Features]) -> None:
     """Adds a batch of predictions for a batch of examples.
 
     Args:
@@ -1179,7 +1171,6 @@ class CalibrationAUC(metrics_base.KerasMetric):
     # Note that even though the labels are really over a batch of predictions,
     # we use the kwarg "label" to be consistent with the other functions that
     # use the singular name.
-    self._average_predictions = False
     label = metadata["label"]
     confidence = metadata["confidence"]
     if self._use_dataset_labelset:
@@ -1192,7 +1183,6 @@ class CalibrationAUC(metrics_base.KerasMetric):
     self._add_prediction(
         predictions=model_predictions,
         label=label,
-        average_predictions=False,
         confidence=confidence)
 
 
@@ -1227,11 +1217,11 @@ class Brier(metrics_base.KerasMetric):
         dataset_info, metric, "brier", take_argmax=False, one_hot=True,
         use_dataset_labelset=use_dataset_labelset)
 
-  def _add_prediction(self, predictions, label, average_predictions):
+  def _add_prediction(self, predictions, label):
     """Feeds the given label and prediction to the underlying Keras metric."""
     if self._num_classes is None:
       self._num_classes = predictions.shape[-1]
-    super()._add_prediction(predictions, label, average_predictions)
+    super()._add_prediction(predictions, label)
 
   def result(self):
     return {"brier": self._num_classes * float(self._metric.result())}

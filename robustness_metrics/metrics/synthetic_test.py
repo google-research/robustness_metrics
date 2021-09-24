@@ -56,7 +56,7 @@ class SyntheticTest(parameterized.TestCase, tf.test.TestCase):
 
     # Area-related instances
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[_one_hot(400)]),
+        _one_hot(400),
         metadata={
             "image_id": 0,
             "dataset_variant": "size",
@@ -65,7 +65,7 @@ class SyntheticTest(parameterized.TestCase, tf.test.TestCase):
         })
 
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[_one_hot(407)]),
+        _one_hot(407),
         metadata={
             "image_id": 101022,
             "dataset_variant": "size",
@@ -75,7 +75,7 @@ class SyntheticTest(parameterized.TestCase, tf.test.TestCase):
 
     # Location-related instances
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[_one_hot(100)]),
+        _one_hot(100),
         metadata={
             "image_id": 10036,
             "dataset_variant": "location",
@@ -84,7 +84,7 @@ class SyntheticTest(parameterized.TestCase, tf.test.TestCase):
         })
 
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[_one_hot(806)]),
+        _one_hot(806),
         metadata={
             "image_id": 1000,
             "dataset_variant": "location",
@@ -94,7 +94,7 @@ class SyntheticTest(parameterized.TestCase, tf.test.TestCase):
 
     # Rotation instance
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[_one_hot(806)]),
+        _one_hot(806),
         metadata={
             "image_id": 10942,
             "dataset_variant": "rotation",

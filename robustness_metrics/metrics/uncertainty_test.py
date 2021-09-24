@@ -62,7 +62,7 @@ def _get_info(num_classes=2):
 
 
 def _normalize(x):
-  return [x_i / sum(x) for x_i in x]
+  return np.array([x_i / sum(x) for x_i in x])
 
 
 def _with_labelset(name):
@@ -99,12 +99,10 @@ class KerasMetricTest(parameterized.TestCase, tf.test.TestCase):
         _with_labelset(tempname),
         rm.datasets.base.DatasetInfo(num_classes=3, appearing_classes=[0, 1]))
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[.2, .8], [.7, .3]]),
+        [.45, .55],
         metadata={"label": 1, "element_id": 1})
     metric_ls.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[_normalize([.2, .8, .3]),
-                         _normalize([.7, .3, .5])]),
+        _normalize([.45, .55, .4]),
         metadata={"label": 1, "element_id": 1})
     expected_output = {
         _GCE_DEFAULT: {"gce": .45},
@@ -142,18 +140,16 @@ class KerasMetricTest(parameterized.TestCase, tf.test.TestCase):
         _with_labelset(tempname),
         rm.datasets.base.DatasetInfo(num_classes=3, appearing_classes=[0, 2]))
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[.2, .8]]),
+        [.2, .8],
         metadata={"label": 1, "element_id": 1})
     metric_ls.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[_normalize([.2, .5, .8])]),
+        _normalize([.2, .5, .8]),
         metadata={"label": 2, "element_id": 1})
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[.3, .7]]),
+        [.3, .7],
         metadata={"label": 0, "element_id": 2})
     metric_ls.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[_normalize([.3, .8, .7])]),
+        _normalize([.3, .8, .7]),
         metadata={"label": 0, "element_id": 2})
     expected_output = {
         _GCE_DEFAULT: {"gce": 0.51478150},
@@ -192,20 +188,16 @@ class KerasMetricTest(parameterized.TestCase, tf.test.TestCase):
         rm.datasets.base.DatasetInfo(num_classes=4,
                                      appearing_classes=[1, 2, 3]))
     metric.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[[.2, .4, .4], [.5, .3, .2]]),
+        [.35, .35, .3],
         metadata={"label": 2})
     metric_ls.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[_normalize([.5, .2, .4, .4]),
-                         _normalize([.9, .5, .3, .2])]),
+        _normalize([.7, .35, .35, .3]),
         metadata={"label": 3, "element_id": 1})
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[.8, .15, .05]]),
+        [.8, .15, .05],
         metadata={"label": 1, "element_id": 2})
     metric_ls.add_predictions(
-        rm.common.types.ModelPredictions(
-            predictions=[_normalize([.4, .8, .15, .05])]),
+        _normalize([.4, .8, .15, .05]),
         metadata={"label": 2, "element_id": 2})
     expected_output = {
         _GCE_DEFAULT:

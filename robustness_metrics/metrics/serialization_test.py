@@ -17,7 +17,6 @@
 
 import numpy as np
 import robustness_metrics as rm
-from robustness_metrics.common import types
 import tensorflow as tf
 
 
@@ -27,11 +26,11 @@ class SerializationTest(tf.test.TestCase):
     path = self.create_tempdir().create_file('myfile.tfrecords').full_path
     serializer = rm.metrics.Serializer(path)
     predictions_and_metadata = [
-        (types.ModelPredictions(np.array([[0., 1., 2.]], dtype=np.float32)),
+        (np.array([0., 1., 2.], dtype=np.float32),
          {'element_id': 1, 'label': 1}),
-        (types.ModelPredictions(np.array([[3., 4., 5.]], dtype=np.float32)),
+        (np.array([3., 4., 5.], dtype=np.float32),
          {'element_id': 2, 'label': 2}),
-        (types.ModelPredictions(np.array([[6., 7., 8.]], dtype=np.float32)),
+        (np.array([6., 7., 8.], dtype=np.float32),
          {'element_id': 3, 'label': 3}),
     ]
 
@@ -40,14 +39,14 @@ class SerializationTest(tf.test.TestCase):
     serializer.flush()
     actual = list(serializer.read_predictions())
     for x, y in zip(predictions_and_metadata[:2], actual):
-      self.assertAllEqual(x[0].predictions, y[0].predictions)
+      self.assertAllEqual(x[0], y[0])
       self.assertEqual(x[1], y[1])
 
     serializer.add_predictions(*predictions_and_metadata[2])
     serializer.flush()
     actual = list(serializer.read_predictions())
     for x, y in zip(predictions_and_metadata, actual):
-      self.assertAllEqual(x[0].predictions, y[0].predictions)
+      self.assertAllEqual(x[0], y[0])
       self.assertEqual(x[1], y[1])
 
 if __name__ == '__main__':

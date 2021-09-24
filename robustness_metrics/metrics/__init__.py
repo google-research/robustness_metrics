@@ -25,21 +25,18 @@ subclass given the identifier. Example usage:
 import robustness_metrics as rm
 
 metric = rm.metrics.get("accuracy")  # or rm.metrics.Accuracy()
-metric.add_predictions(
-  ModelPredictions(metadata={"label": 1, "element_id": 2},
-                   predictions=[[.2, .8], [.7, .3]]))
-results = model.results()
+metric.add_predictions(model_predictions=[[.2, .8], [.7, .3]],
+                       metadata={"label": 1, "element_id": 2})
+results = model.result()
 print(f"Results: {results!r}")
 ```
 """
-import operator
-from typing import Text, Type
+from typing import Optional, Text, Type
 
 from robustness_metrics.common import types
 from robustness_metrics.metrics import base
 from robustness_metrics.metrics import retrieval
 from robustness_metrics.metrics import serialization
-from robustness_metrics.metrics import timing
 from robustness_metrics.metrics import uncertainty
 from robustness_metrics.metrics.base import Accuracy
 from robustness_metrics.metrics.base import AggregatedAccuracy
@@ -57,7 +54,6 @@ from robustness_metrics.metrics.retrieval import AucRoc
 from robustness_metrics.metrics.retrieval import FalsePositiveRate95
 from robustness_metrics.metrics.serialization import Serializer
 from robustness_metrics.metrics.synthetic import Synthetic
-from robustness_metrics.metrics.timing import TimingStatsMetric
 from robustness_metrics.metrics.uncertainty import AdaptiveCalibrationError
 from robustness_metrics.metrics.uncertainty import Brier
 from robustness_metrics.metrics.uncertainty import BrierDecomposition
@@ -93,14 +89,9 @@ def get(metric_name: Text, dataset_info=None):
   return base.registry.get_instance(metric_name, dataset_info=dataset_info)
 
 
-def _recursive_map(fn, dict_or_val):
-  if isinstance(dict_or_val, dict):
-    return {k: _recursive_map(fn, v) for k, v in dict_or_val.items()}
-  else:
-    return fn(dict_or_val)
-
-
-def add_batch(metric: base.Metric, predictions, **metadata):
+def add_batch(metric: base.Metric,
+              model_predictions: types.Array,
+              **metadata: Optional[types.Features]) -> None:
   """Add a batch of predictions.
 
   Example usage:
@@ -112,17 +103,15 @@ def add_batch(metric: base.Metric, predictions, **metadata):
 
   Args:
     metric: The metric where the predictions will be added.
-    predictions: A 2d array (list or numpy array), containing one prediction per
-      row.
-    **metadata:
-      The keys and values that will be used to construct the metadata. It can
-      be any (arbitrarily) nested dictionary, with 2d arrays (list or numpy
-      arrays) leaves, each holding one example per row.
+    model_predictions: The batch of predictions. Array with shape [batch_size,
+      ...] where [...] is the shape of a single prediction. Some metric
+      subclasses may require a shape [num_predictions, batch_size, ...] where
+      they evaluate over multiple predictions per example.
+    **metadata: The batch metadata, possibly including `label` which is the
+      batch of labels, one for each example in the batch. Each metadata kwarg
+      must be batched such as `label` with shape [batch_size].
   """
-  for i, predictions_i in enumerate(predictions):
-    metadata_i = _recursive_map(operator.itemgetter(i), metadata)
-    metric.add_predictions(types.ModelPredictions(predictions=[predictions_i]),
-                           metadata_i)
+  metric.add_batch(model_predictions, **metadata)
 
 
 __all__ = [
@@ -159,7 +148,6 @@ __all__ = [
     "Synthetic",
     "TemperatureScaling",
     "ThresholdedAdaptiveCalibrationError",
-    "TimingStatsMetric",
     "TopKAccuracy",
     "add_batch",
     "base",
@@ -167,6 +155,5 @@ __all__ = [
     "registry",
     "retrieval",
     "serialization",
-    "timing",
     "uncertainty",
 ]

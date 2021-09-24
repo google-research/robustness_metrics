@@ -33,25 +33,25 @@ class AucPrTest(tf.test.TestCase):
     #   https://scikit-learn.org/stable/modules/generated/sklearn.metrics.average_precision_score.html
     metric = rm.metrics.get("auc_pr(is_binary_classification=True)")
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[.9, .1]]),
+        [.9, .1],
         metadata={
             "label": 0,
             "element_id": 0
         })
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[.6, .4]]),
+        [.6, .4],
         metadata={
             "label": 0,
             "element_id": 1
         })
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[.65, .35]]),
+        [.65, .35],
         metadata={
             "label": 1,
             "element_id": 2
         })
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[0.2, 0.8]]),
+        [0.2, 0.8],
         metadata={
             "label": 1,
             "element_id": 3
@@ -65,7 +65,7 @@ class AucPrTest(tf.test.TestCase):
     metric.add_predictions(
         # We swap some predictions, which does not affect the results because of
         # of the application of max(., axis=1).
-        rm.common.types.ModelPredictions(predictions=[[0.1, 0.01]]),
+        [0.1, 0.01],
         metadata={
             "label": 0,
             "element_id": 0
@@ -73,19 +73,19 @@ class AucPrTest(tf.test.TestCase):
     metric.add_predictions(
         # We swap some predictions, which does not affect the results because of
         # of the application of max(., axis=1).
-        rm.common.types.ModelPredictions(predictions=[[.4, .006]]),
+        [.4, .006],
         metadata={
             "label": 0,
             "element_id": 1
         })
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[.05, .35]]),
+        [.05, .35],
         metadata={
             "label": 1,
             "element_id": 2
         })
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[0.2, 0.8]]),
+        [0.2, 0.8],
         metadata={
             "label": 1,
             "element_id": 3
@@ -103,25 +103,25 @@ class AucRocAndFalsePositiveRate95Test(parameterized.TestCase,
   def test_auc_roc_and_fpr95_binary(self, metric_name, result):
     metric = rm.metrics.get(f"{metric_name}(is_binary_classification=True)")
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[.8, .2]]),
+        [.8, .2],
         metadata={
             "label": 0,
             "element_id": 0
         })
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[.6, .4]]),
+        [.6, .4],
         metadata={
             "label": 0,
             "element_id": 1
         })
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[.65, .35]]),
+        [.65, .35],
         metadata={
             "label": 1,
             "element_id": 2
         })
     metric.add_predictions(
-        rm.common.types.ModelPredictions(predictions=[[0.9, 0.1]]),
+        [0.9, 0.1],
         metadata={
             "label": 1,
             "element_id": 3
