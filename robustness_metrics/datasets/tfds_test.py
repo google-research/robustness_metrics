@@ -41,6 +41,7 @@ class TaskAdaptationDatasetsTest(parameterized.TestCase, tf.test.TestCase):
       ("places365",),
       ("dtd",),
       ("svhn",),
+      ("imagenet_sketch",),
   ])
   def test_that_it_loads_with_default(self, name, label_field="label"):
     dataset_object = dataset = rm.datasets.get(name)

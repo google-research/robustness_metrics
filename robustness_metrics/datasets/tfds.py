@@ -414,3 +414,13 @@ def default_cifar_preprocessing(features: types.Features) -> types.Features:
   std = tf.constant([0.2023, 0.1994, 0.2010], dtype=dtype)
   features["image"] = (image - mean) / std
   return features
+
+
+@base.registry.register("imagenet_sketch")
+class ImageNetSketchDataset(TFDSDataset):
+  """The ImageNet-Sketch Dataset."""
+
+  def __init__(self):
+    super().__init__(dataset_builder=tfds.builder("imagenet_sketch"),
+                     fingerprint_key="file_name",
+                     default_preprocess_fn=default_imagenet_preprocessing)
