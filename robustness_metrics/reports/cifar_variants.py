@@ -72,21 +72,15 @@ class Cifar10VariantsReport(base.Report):
 
   def add_measurement(self, dataset_spec, metric_name, metric_results):
     dataset_name, _, _ = registry.parse_name_and_kwargs(dataset_spec)
+    if metric_name == "timing":
+      value = metric_results["mean"]
+    else:
+      # All remaining metrics are a dictionary with a single value, with
+      # the key equal to the metric name.
+      value, = list(metric_results.values())
     if dataset_name == "cifar10_c":
-      if metric_name == "timing":
-        value = metric_results["mean"]
-      else:
-        # All remaining metrics are a dictionary with a single value, with
-        # the key equal to the metric name.
-        value, = list(metric_results.values())
       self._corruption_metrics[f"cifar10_c/{metric_name}"].append(value)
     else:
-      if metric_name == "timing":
-        value = metric_results["mean"]
-      else:
-        # All remaining metrics are a dictionary with a single value, with
-        # the key equal to the metric name.
-        value, = list(metric_results.values())
       self._results[f"{dataset_name}/{metric_name}"] = value
 
   def result(self) -> Dict[str, float]:

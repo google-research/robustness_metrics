@@ -68,11 +68,10 @@ def parse_name_and_kwargs(code: str) -> Tuple[str, List[Any], Dict[str, Any]]:
   # Simple case without arguments.
   if isinstance(expr, ast.Name):
     return name, [], {}
-  else:
-    assert isinstance(expr, ast.Call)
-    args = [ast.literal_eval(x) for x in expr.args]
-    kwargs = {kv.arg: ast.literal_eval(kv.value) for kv in expr.keywords}
-    return name, args, kwargs
+  assert isinstance(expr, ast.Call)
+  args = [ast.literal_eval(x) for x in expr.args]
+  kwargs = {kv.arg: ast.literal_eval(kv.value) for kv in expr.keywords}
+  return name, args, kwargs
 
 
 def standardize_spec(code: str) -> str:

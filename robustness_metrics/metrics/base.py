@@ -309,12 +309,11 @@ class AggregatedAccuracy(Metric):
     self._aggregator_fn = aggregator_fn
     self._dataset_info = dataset_info
     self._classes_to_ignore = None
-    if self._dataset_info:
-      if self._dataset_info.appearing_classes:
-        num_classes = self._dataset_info.num_classes
-        all_classes = set(range(num_classes))
-        appearing_classes = set(self._dataset_info.appearing_classes)
-        self._classes_to_ignore = all_classes.difference(appearing_classes)
+    if self._dataset_info and self._dataset_info.appearing_classes:
+      num_classes = self._dataset_info.num_classes
+      all_classes = set(range(num_classes))
+      appearing_classes = set(self._dataset_info.appearing_classes)
+      self._classes_to_ignore = all_classes.difference(appearing_classes)
 
   def get_groups(self):
     """Returns a dictionary mapping each group to tuples of (element, score)."""

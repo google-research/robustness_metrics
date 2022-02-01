@@ -124,15 +124,14 @@ def materialize(strategy: tf.distribute.Strategy, value_or_nested_dict):
     Same type and format as the input, with PerReplica values replaced with
     corresponding `tf.Tensor`s.
   """
-  if isinstance(value_or_nested_dict, dict):
-    nested_dict = value_or_nested_dict
-    return {
-        key: materialize(strategy, value) for key, value in nested_dict.items()
-    }
-  else:
+  if not isinstance(value_or_nested_dict, dict):
     return tf.concat(
         strategy.experimental_local_results(value_or_nested_dict),
         axis=0).numpy()
+  nested_dict = value_or_nested_dict
+  return {
+      key: materialize(strategy, value) for key, value in nested_dict.items()
+  }
 
 
 def compute_predictions(
@@ -246,12 +245,11 @@ def compute_predictions_jax(
     return {"__packed": tf.ensure_shape(packed, [1024])}
 
   def unpad_strings(array):
-    if isinstance(array, dict):
-      with_trailing_zeros = bytes(tf.strings.unicode_encode(
-          np.asarray(array["__packed"]).reshape(-1), "UTF-8").numpy())
-      return with_trailing_zeros.rstrip(b"\x00")
-    else:
+    if not isinstance(array, dict):
       return np.asarray(array)
+    with_trailing_zeros = bytes(tf.strings.unicode_encode(
+        np.asarray(array["__packed"]).reshape(-1), "UTF-8").numpy())
+    return with_trailing_zeros.rstrip(b"\x00")
 
   def pad_strings_in_metadata(features):
     """Only padding of the strings subject to a gather operation."""
