@@ -204,8 +204,9 @@ class ExpectedCalibrationError(metrics_base.KerasMetric):
       self,
       dataset_info=None,
       use_dataset_labelset=False,
-      num_bins=15):
-    metric = _KerasECEMetric(num_bins=num_bins)
+      num_bins=15,
+      dtype=None):
+    metric = _KerasECEMetric(num_bins=num_bins, dtype=dtype)
     super().__init__(
         dataset_info, metric, "ece", take_argmax=False, one_hot=False,
         use_dataset_labelset=use_dataset_labelset)
@@ -863,9 +864,10 @@ class OracleCollaborativeAccuracy(metrics_base.KerasMetric):
       dataset_info=None,
       use_dataset_labelset=False,
       fraction=0.01,
-      num_bins=100):
+      num_bins=100,
+      dtype=None):
     metric = _KerasOracleCollaborativeAccuracyMetric(
-        fraction=fraction, num_bins=num_bins)
+        fraction=fraction, num_bins=num_bins, dtype=dtype)
     super().__init__(
         dataset_info,
         metric,
@@ -1001,7 +1003,8 @@ class OracleCollaborativeAUC(OracleCollaborativeAccuracy):
                num_bins: int = 1000,
                num_thresholds: int = 200,
                curve: str = "ROC",
-               summation_method: str = "interpolation"):
+               summation_method: str = "interpolation",
+               dtype: Optional[tf.DType] = None):
     """Constructs an expected oracle-collaborative AUC Keras metric.
 
     Args:
@@ -1025,6 +1028,7 @@ class OracleCollaborativeAUC(OracleCollaborativeAccuracy):
         Goadrich 2006 for details); 'minoring' applies left summation for
         increasing intervals and right summation for decreasing intervals;
         'majoring' does the opposite.
+      dtype: Data type of this metric.
     """
     super().__init__(
         dataset_info=dataset_info,
@@ -1038,7 +1042,8 @@ class OracleCollaborativeAUC(OracleCollaborativeAccuracy):
         num_bins=num_bins,
         num_thresholds=num_thresholds,
         curve=curve,
-        summation_method=summation_method)
+        summation_method=summation_method,
+        dtype=dtype)
     self._metric = metric
     self._key_name = "collaborative_auc"
 
@@ -1079,6 +1084,7 @@ class CalibrationAUC(metrics_base.KerasMetric):
                curve: str = "ROC",
                multi_label: bool = False,
                correct_pred_as_pos_label: bool = True,
+               dtype: Optional[tf.DType] = None,
                **kwargs: Mapping[str, Any]):
     """Constructs CalibrationAUC class.
 
@@ -1093,12 +1099,14 @@ class CalibrationAUC(metrics_base.KerasMetric):
         multi-class. Ignored.
       correct_pred_as_pos_label: Whether to use correct prediction as positive
         label for AUC computation. If False then use it as negative label.
+      dtype: Data type of this metric.
       **kwargs: Other keyword arguments to tf.keras.metrics.AUC.
     """
     metric = _KerasCalibrationAUCMetric(
         curve=curve,
         multi_label=multi_label,
         correct_pred_as_pos_label=correct_pred_as_pos_label,
+        dtype=dtype,
         **kwargs)
 
     super().__init__(
