@@ -1981,7 +1981,7 @@ class CRPSSCore(metrics_base.FullBatchMetric):
   distribution and \\(y)\\ is the realized ground truth value.
 
   The CRPS can be used as a loss function for training an implicit model for
-  probabilistic regression.  It can also be used to assess the predictive
+  probabilistic regression. It can also be used to assess the predictive
   performance of a probabilistic regression model.
 
   In this implementation we use an equivalent representation of the CRPS,
@@ -1989,11 +1989,13 @@ class CRPSSCore(metrics_base.FullBatchMetric):
   \\(\textrm{CRPS}(F,y) = E_{z~F}[|z-y|] - (1/2) E_{z,z'~F}[|z-z'|].\\)
 
   This equivalent representation has an unbiased sample estimate and our
-  implementation of the CRPS has a complexity is O(n*m).
+  implementation of the CRPS has a time complexity is O(n*m*log(m))
+  and a memory complexity is O(n*m). A naive implementation will have
+  both time complexity and memory complexity O(n*m*m).
 
   It is expected that the predictions (for each point) are of shape (m,) holding
-  m samples o the model predictive p(y|x_i). It is further expected that the
-  metadat has a field `label` holding the real-valued target.
+  m samples of the model predictive p(y|x_i). It is further expected that the
+  metadata has a field `label` holding the real-valued target.
 
   The computed result has a single key "crps", holding the average CRPS.
 
@@ -2005,14 +2007,23 @@ class CRPSSCore(metrics_base.FullBatchMetric):
   """
 
   def result(self):
-    pairwise_diff = tf.roll(self._predictions, 1, axis=1) - self._predictions
-    predictive_diff = tf.abs(pairwise_diff)
-    estimated_dist_pairwise = tf.reduce_mean(input_tensor=predictive_diff,
-                                             axis=1)
-    labels = tf.expand_dims(self._labels, 1)
-    dist_realization = tf.reduce_mean(tf.abs(self._predictions-labels), axis=1)
+    # First we sort the predictions. Then the pairwise distance of a sorted
+    # array (a, b, c, d) can be computed as
+    #   2 * (|a-b| + |a-c| + |a-d| + |b-c| + |b-d| + |c-d|)
+    #   = -6 * a - 2 * b + 2 * c + 6 * d
+    sorted_predictions = tf.sort(self._predictions, axis=1)
+    m = sorted_predictions.shape[1]
+    pairwise_coef = tf.range(
+        -2 * m + 2, 2 * m, 4, dtype=sorted_predictions.dtype)
+    estimated_dist_pairwise = tf.einsum("ij...,j->i...", sorted_predictions,
+                                        pairwise_coef) / (
+                                            m**2)
 
-    crps = dist_realization - 0.5*estimated_dist_pairwise
+    labels = tf.expand_dims(self._labels, 1)
+    dist_realization = tf.reduce_mean(
+        tf.abs(self._predictions - labels), axis=1)
+
+    crps = dist_realization - 0.5 * estimated_dist_pairwise
 
     return {"crps": crps}
 

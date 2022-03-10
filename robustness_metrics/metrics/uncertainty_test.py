@@ -271,6 +271,25 @@ class IsotonicRegressionTest(tf.test.TestCase):
 
 class CRPSTest(tf.test.TestCase):
 
+  def test_crps_consistent_with_naive_implementation(self):
+    tf.random.set_seed(1)
+
+    n, m = 10, 100
+    samples = tf.random.normal((n, m))
+    labels = tf.random.normal((n,))
+
+    estimated_dist_pairwise = tf.reduce_mean(
+        tf.abs(tf.expand_dims(samples, 1) - tf.expand_dims(samples, 2)),
+        axis=(1, 2))
+    dist_realization = tf.reduce_mean(
+        tf.abs(samples - tf.expand_dims(labels, 1)), axis=1)
+    expected = dist_realization - 0.5 * estimated_dist_pairwise
+
+    metric = rm.metrics.CRPSSCore()
+    metric.add_batch(samples, label=labels)
+    actual = metric.result()["crps"]
+    self.assertAllClose(actual, expected)
+
   def test_crps_increases_with_increasing_deviation_in_mean(self):
     """Assert that the CRPS score increases when we increase the mean.
     """
