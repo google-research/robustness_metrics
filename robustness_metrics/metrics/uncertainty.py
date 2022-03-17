@@ -1963,7 +1963,7 @@ class IsotonicRegression(metrics_base.FullBatchMetric):
     labels = np.asarray(self._labels)
     predictions = np.asarray(self._predictions)
     assert len(labels) == len(predictions), "Labels/predictions don't match."
-    self.fit(predictions, labels)
+    self.fit(predictions, labels)  # pytype: disable=wrong-arg-types  # trace-all-classes
     return {"dummy": 0.0}
 
 
