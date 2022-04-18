@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 r"""Generate a set of robustness reports on the given model.
 
 The script accepts a path to the python file (including the .py extension),

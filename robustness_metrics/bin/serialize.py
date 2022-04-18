@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 r"""Save the model outputs to a file on disk.
 
 The predictions can be loaded into a model using `models/serialized.py`.
