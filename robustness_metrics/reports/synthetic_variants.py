@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """Report that evaluates accuracy on synthetic data."""
 
 from robustness_metrics.reports import base

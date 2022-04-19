@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """Tests for robustness_metrics.reports."""
 from absl.testing import absltest
 import robustness_metrics as rm

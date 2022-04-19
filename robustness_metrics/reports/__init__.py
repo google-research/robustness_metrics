@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """Reports to compute robustness scores of machine learning models."""
 from typing import Text, Type
 from robustness_metrics.reports import base

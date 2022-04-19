@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """Reports that evaluate models over the CIFAR-10 and CIFAR-100 label space."""
 import collections
 from typing import Dict

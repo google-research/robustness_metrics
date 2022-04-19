@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """Reports about OOD detection for {cifar10, cifar100} versus other datasets."""
 from typing import List
 from robustness_metrics.reports import base
