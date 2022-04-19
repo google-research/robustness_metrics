@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """Metrics that report the inference speed of the model."""
 
 from typing import Dict

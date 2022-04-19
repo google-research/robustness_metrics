@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """Simple Framework for Contrastive Learning of Visual Representations.
 
 The model is trained on ImageNet (https://arxiv.org/abs/2002.05709). The default

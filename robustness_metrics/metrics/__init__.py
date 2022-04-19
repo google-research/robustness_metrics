@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """Robustness metrics.
 
 This module provides a set of metrics, which accept `ModelPrediction`s and

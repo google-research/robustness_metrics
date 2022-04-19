@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """Model from `Big Transfer (BiT): General Visual Representation Learning`.
 
 The model is pre-trained on ImageNet21k and fine-tuned to ImageNet
