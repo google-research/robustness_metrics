@@ -87,14 +87,14 @@ def bregman_kl_variance(x):
   Returns:
     tf.Tensor of shape [batch_size].
   """
-  num_models = x.shape[0]
-  batch_size = x.shape[1]
+  num_models = tf.shape(x)[0]
+  batch_size = tf.shape(x)[1]
 
   variance = tf.zeros(batch_size)
   central_prediction = tf.nn.softmax(tf.reduce_mean(tf.math.log(x), axis=0))
   for i in range(num_models):
     variance += kl_divergence(central_prediction, x[i])
-  return variance / num_models
+  return variance / tf.cast(num_models, dtype=tf.float32)
 
 
 @metrics_base.registry.register('average_pairwise_diversity')
