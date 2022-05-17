@@ -16,12 +16,30 @@
 """Tests for robustness_metrics.metrics.diversity."""
 
 from absl.testing import parameterized
-
 import robustness_metrics as rm
 import tensorflow as tf
 
 
 class DiversityTest(parameterized.TestCase, tf.test.TestCase):
+
+  @parameterized.parameters(
+      (1, 5),
+      (2, 3),
+  )
+  def test_bregman_kl_variance(self, batch_size, num_classes):
+    logits_1 = tf.random.normal((batch_size, num_classes))
+    logits_2 = tf.random.normal((batch_size, num_classes))
+
+    prediction = tf.nn.softmax(tf.stack([logits_1, logits_2], axis=0))
+
+    actual_variance = rm.metrics.diversity.bregman_kl_variance(prediction)
+    self.assertEqual(actual_variance.shape, [batch_size])
+
+    central_pred = tf.nn.softmax(.5 * (logits_1 + logits_2))
+    kl_1 = tf.keras.losses.kl_divergence(central_pred, tf.nn.softmax(logits_1))
+    kl_2 = tf.keras.losses.kl_divergence(central_pred, tf.nn.softmax(logits_2))
+
+    self.assertAllClose(actual_variance, .5 * (kl_1 + kl_2))
 
   @parameterized.parameters(
       (rm.metrics.diversity.cosine_distance,),
@@ -52,18 +70,20 @@ class DiversityTest(parameterized.TestCase, tf.test.TestCase):
     diversity.add_batch(probs)
 
     results = diversity.result()
-    self.assertLen(results, 3)
+    self.assertLen(results, 4)
     self.assertIsInstance(results['disagreement'], float)
     self.assertIsInstance(results['average_kl'], float)
     self.assertIsInstance(results['cosine_similarity'], float)
+    self.assertIsInstance(results['bregman_kl_variance'], float)
 
   def testAveragePairwiseDiversityWithoutUpdate(self):
     diversity = rm.metrics.AveragePairwiseDiversity()
     results = diversity.result()
-    self.assertLen(results, 3)
+    self.assertLen(results, 4)
     self.assertEqual(results['disagreement'], 0.0)
     self.assertEqual(results['average_kl'], 0.0)
     self.assertEqual(results['cosine_similarity'], 0.0)
+    self.assertEqual(results['bregman_kl_variance'], 0.0)
 
 
 if __name__ == '__main__':

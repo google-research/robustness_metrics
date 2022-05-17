@@ -64,6 +64,39 @@ def cosine_distance(x, y):
   return tf.reduce_sum(normalized_x * normalized_y, axis=-1)
 
 
+def bregman_kl_variance(x):
+  """Bregman variance under a KL loss as defined in arxiv.org/abs/2202.04167.
+
+  This function returns a value that can be either interpreted as
+  1. The empirical (biased) estimate of the variance of a *single* model, where
+     the variance is obtained by the generalization of the bias-variance
+     decomposition to the KL divergence loss. See arxiv.org/pdf/2202.04167,
+     Eq. (5) for the definion of variance and Prop. 4.1 for the bias of this
+     estimator.
+  2. An estimate of how diverse an ensemble is: when the ensemble output is
+     obtained by averaging individual predictions in probability space, the
+     expected loss of the ensemble is the average loss of each individual model
+     minus this diversity term. As such, increasing the diversity (while keeping
+     the mean individual loss fixed) reduces ensemble loss. See, e.g.,
+     arxiv.org/pdf/1902.04422 for this term as a diversity regularizer.
+
+  Args:
+    x: tf.Tensor of probabilities, of shape [ensemble_size, batch_size=1, 1,
+      num_classes].
+
+  Returns:
+    tf.Tensor of shape [batch_size].
+  """
+  num_models = x.shape[0]
+  batch_size = x.shape[1]
+
+  variance = tf.zeros(batch_size)
+  central_prediction = tf.nn.softmax(tf.reduce_mean(tf.math.log(x), axis=0))
+  for i in range(num_models):
+    variance += kl_divergence(central_prediction, x[i])
+  return variance / num_models
+
+
 @metrics_base.registry.register('average_pairwise_diversity')
 class AveragePairwiseDiversity(metrics_base.Metric):
   """Average pairwise diversity of models.
@@ -114,6 +147,9 @@ class AveragePairwiseDiversity(metrics_base.Metric):
                                         trainable=False,
                                         aggregation=tf.VariableAggregation.SUM)
 
+    self._bregman_kl_variance = tf.Variable(
+        0., trainable=False, aggregation=tf.VariableAggregation.SUM)
+
   def add_predictions(self,
                       model_predictions: types.ModelPredictions,
                       metadata: types.Features) -> None:
@@ -156,11 +192,15 @@ class AveragePairwiseDiversity(metrics_base.Metric):
     batch_disagreement = tf.reduce_mean(batch_disagreement)
     batch_kl_divergence = tf.reduce_mean(batch_kl_divergence)
     batch_cosine_distance = tf.reduce_mean(batch_cosine_distance)
+    batch_bregman_kl_variance = tf.reduce_sum(
+        bregman_kl_variance(model_predictions))
 
     self._dataset_size.assign_add(batch_size)
     self._disagreement.assign_add(batch_disagreement)
     self._kl_divergence.assign_add(batch_kl_divergence)
     self._cosine_distance.assign_add(batch_cosine_distance)
+    self._bregman_kl_variance.assign_add(batch_bregman_kl_variance)
+
     if self._normalize_disagreement:
       ensemble_predictions = tf.reduce_mean(model_predictions, axis=0)
       self._accuracy.add_batch(ensemble_predictions, **metadata)
@@ -172,6 +212,7 @@ class AveragePairwiseDiversity(metrics_base.Metric):
     self._disagreement.assign(0.)
     self._kl_divergence.assign(0.)
     self._cosine_distance.assign(0.)
+    self._bregman_kl_variance.assign(0.)
 
   def result(self) -> Dict[Text, float]:
     """Computes the results from all the predictions it has seen so far.
@@ -184,6 +225,7 @@ class AveragePairwiseDiversity(metrics_base.Metric):
           'disagreement': 0.0,
           'average_kl': 0.0,
           'cosine_similarity': 0.0,
+          'bregman_kl_variance': 0.0,
       }
 
     dataset_size = tf.cast(self._dataset_size, self._disagreement.dtype)
@@ -194,9 +236,10 @@ class AveragePairwiseDiversity(metrics_base.Metric):
 
     avg_kl = self._kl_divergence / dataset_size
     avg_cosine_distance = self._cosine_distance / dataset_size
+    avg_bregman_kl_variance = self._bregman_kl_variance / dataset_size
     return {
         'disagreement': float(avg_disagreement),
         'average_kl': float(avg_kl),
         'cosine_similarity': float(avg_cosine_distance),
+        'bregman_kl_variance': float(avg_bregman_kl_variance),
     }
-
