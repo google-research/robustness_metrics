@@ -585,6 +585,56 @@ class KerasECEMetricTest(parameterized.TestCase, tf.test.TestCase):
     self.assertAllEqual(bin_correct_sums, actual_bin_correct_sums)
     self.assertAllClose(bin_prob_sums, actual_bin_prob_sums)
 
+  def test_weighted_ece(self):
+    num_bins = 10
+    pred_probs = [
+        [0.31, 0.32, 0.27],
+        [0.37, 0.33, 0.30],
+        [0.30, 0.31, 0.39],
+        [0.61, 0.38, 0.01],
+        [0.10, 0.65, 0.25],
+        [0.91, 0.05, 0.04],
+    ]
+    # max_pred_probs: [0.32, 0.37, 0.39, 0.61, 0.65, 0.91]
+    # pred_class: [1, 0, 2, 0, 1, 0]
+    labels = [1., 0, 0., 1., 0., 0.]
+    n = len(pred_probs)
+
+    # Bins for the max predicted probabilities are (0, 0.1), [0.1, 0.2), ...,
+    # [0.9, 1) and are numbered starting at zero.
+    bin_counts = [0, 0, 0, 3, 0, 0, 2, 0, 0, 1]
+    bin_correct_sums = [0, 0, 0, 0.32 + 0.37, 0, 0, 0, 0, 0, 0.91]
+    bin_prob_sums = [
+        0, 0, 0, 0.32**2 + 0.37**2 + 0.39**2, 0, 0, 0.61**2 + 0.65**2, 0, 0,
+        0.91**2
+    ]
+
+    correct_ece = 0.
+    bin_accs = [0.] * num_bins
+    bin_confs = [0.] * num_bins
+    for i in range(num_bins):
+      if bin_counts[i] > 0:
+        bin_accs[i] = bin_correct_sums[i] / bin_counts[i]
+        bin_confs[i] = bin_prob_sums[i] / bin_counts[i]
+        correct_ece += bin_counts[i] / n * abs(bin_accs[i] - bin_confs[i])
+
+    metric = rm.metrics.uncertainty._KerasECEMetric(
+        num_bins, name="ECE", dtype=tf.float64, weighted=True)
+    self.assertLen(metric.variables, 3)
+
+    metric.update_state(labels[:4], pred_probs[:4])
+    ece1 = metric(labels[4:], pred_probs[4:])
+    ece2 = metric.result()
+    self.assertAllClose(ece1, ece2)
+    self.assertAllClose(ece2, correct_ece)
+
+    actual_bin_counts = tf.convert_to_tensor(metric.counts)
+    actual_bin_correct_sums = tf.convert_to_tensor(metric.correct_sums)
+    actual_bin_prob_sums = tf.convert_to_tensor(metric.prob_sums)
+    self.assertAllEqual(bin_counts, actual_bin_counts)
+    self.assertAllClose(bin_correct_sums, actual_bin_correct_sums)
+    self.assertAllClose(bin_prob_sums, actual_bin_prob_sums)
+
 
 class BrierDecompositionTest(parameterized.TestCase, tf.test.TestCase):
   _TEMPERATURES = [0.01, 1.0, 5.0]

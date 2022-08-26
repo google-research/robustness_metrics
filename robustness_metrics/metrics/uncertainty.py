@@ -71,20 +71,28 @@ class _KerasECEMetric(tf.keras.metrics.Metric):
     2. Naeini, M. P., Cooper, G. F. & Hauskrecht, M. Obtaining Well Calibrated
        Probabilities Using Bayesian Binning. Proc Conf AAAI Artif Intell 2015,
        2901-2907 (2015).
+    3. Aviral Kumar, Sunita Sarawagi. Calibration of Encoder Decoder Models for
+       Neural Machine Translation, 2019. https://arxiv.org/abs/1903.00802
   """
 
   _setattr_tracking = False  # Automatic tracking breaks some unit tests
 
-  def __init__(self, num_bins=15, name=None, dtype=None):
+  def __init__(self, num_bins=15, name=None, dtype=None, weighted=False):
     """Constructs an expected calibration error metric.
 
     Args:
       num_bins: Number of bins to maintain over the interval [0, 1].
       name: Name of this metric.
       dtype: Data type.
+      weighted: Whether to compute the weighted ECE metric proposed in [3]:
+        the difference between accuracy and confidence of each single
+        prediction is scaled by the confidence. The weighted metric is useful
+        when the prediction (e.g. a beam candidate) is not the one with maximum
+        probability.
     """
     super().__init__(name, dtype)
     self.num_bins = num_bins
+    self.weighted = weighted
 
     self.correct_sums = self.add_weight(
         "correct_sums", shape=(num_bins,), initializer=tf.zeros_initializer)
@@ -155,14 +163,18 @@ class _KerasECEMetric(tf.keras.metrics.Metric):
     if custom_binning_score is None:
       custom_binning_score = pred_probs
 
+    if self.weighted:
+      # In weighted ECE, the difference (correct_preds - pred_probs)
+      # is weighted by pred_probs, hence we apply that scaling here.
+      correct_preds = correct_preds * pred_probs
+      pred_probs = pred_probs**2
+
     bin_indices = tf.histogram_fixed_width_bins(
         custom_binning_score,
         tf.constant([0., 1.], self.dtype),
         nbins=self.num_bins)
     batch_correct_sums = tf.math.unsorted_segment_sum(
-        data=tf.cast(correct_preds, self.dtype),
-        segment_ids=bin_indices,
-        num_segments=self.num_bins)
+        data=correct_preds, segment_ids=bin_indices, num_segments=self.num_bins)
     batch_prob_sums = tf.math.unsorted_segment_sum(data=pred_probs,
                                                    segment_ids=bin_indices,
                                                    num_segments=self.num_bins)
@@ -199,13 +211,13 @@ class _KerasECEMetric(tf.keras.metrics.Metric):
 class ExpectedCalibrationError(metrics_base.KerasMetric):
   """Expected calibration error."""
 
-  def __init__(
-      self,
-      dataset_info=None,
-      use_dataset_labelset=False,
-      num_bins=15,
-      dtype=None):
-    metric = _KerasECEMetric(num_bins=num_bins, dtype=dtype)
+  def __init__(self,
+               dataset_info=None,
+               use_dataset_labelset=False,
+               num_bins=15,
+               dtype=None,
+               weighted=False):
+    metric = _KerasECEMetric(num_bins=num_bins, dtype=dtype, weighted=weighted)
     super().__init__(
         dataset_info, metric, "ece", take_argmax=False, one_hot=False,
         use_dataset_labelset=use_dataset_labelset)
