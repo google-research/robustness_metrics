@@ -44,11 +44,11 @@ def plot(df_main: pd.DataFrame,
   df_plot = df_main[mask].copy()
 
   df_plot["size"] = df_plot.RawModelName.map(
-      lambda name: int(re.search(r"size=(\d+)", name).groups()[0]))
+      lambda name: int(re.search(r"size=(\d+)", name).groups()[0]))  # pytype: disable=attribute-error
   df_plot["steps"] = df_plot.RawModelName.map(
-      lambda name: int(re.search(r"steps=(\d+)", name).groups()[0]))
+      lambda name: int(re.search(r"steps=(\d+)", name).groups()[0]))  # pytype: disable=attribute-error
   df_plot["num_bins"] = df_plot.Metric.map(
-      lambda metric: int(re.search(r"(?<=num_bins=)(\d+)", metric).groups()[0]))
+      lambda metric: int(re.search(r"(?<=num_bins=)(\d+)", metric).groups()[0]))  # pytype: disable=attribute-error
   df_plot = plotting.add_optimal_temperature_as_rescaling_method(df_plot)
 
   # Remove outlier runs:
