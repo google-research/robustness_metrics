@@ -22,7 +22,7 @@ field "image" being modified. Potentially, other fields can also be modified
 or added.
 """
 import abc
-import collections
+import collections.abc
 from robustness_metrics.common import registry
 import tensorflow as tf2
 import tensorflow.compat.v1 as tf
@@ -90,7 +90,7 @@ class BatchedPreprocessing(object):
 
 
 def maybe_repeat(arg, n_reps):
-  if not isinstance(arg, collections.Sequence):
+  if not isinstance(arg, collections.abc.Sequence):
     arg = (arg,) * n_reps
   return arg
 
