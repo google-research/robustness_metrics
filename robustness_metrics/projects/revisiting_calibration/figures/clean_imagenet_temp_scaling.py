@@ -98,7 +98,7 @@ def plot(df_main: pd.DataFrame,
     elif rescaling_method == "temperature_scaling":
       ax.set_title("Temperature-scaled")
       ax.set_yticklabels("")
-    if ax.is_first_col():
+    if plotting.is_first_col(ax):
       ax.set_ylabel("ECE")
 
   # Model family legend:

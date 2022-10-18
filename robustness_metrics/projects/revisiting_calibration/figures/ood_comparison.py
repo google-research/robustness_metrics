@@ -145,7 +145,7 @@ def plot(df_main: pd.DataFrame,
       ax.xaxis.set_major_locator(mpl.ticker.MultipleLocator(0.2))
 
     # Labels:
-    if ax.is_first_col():
+    if plotting.is_first_col(ax):
       if rescaling_methods[plotting.row_num(ax)] == "none":
         ax.set_ylabel(display.YLABEL_ECE_UNSCALED)
       elif rescaling_methods[plotting.row_num(ax)] == "temperature_scaling":
@@ -157,7 +157,7 @@ def plot(df_main: pd.DataFrame,
       else:
         ax.set_ylabel(rescaling_methods[plotting.row_num(ax)])
 
-    if ax.is_last_row():
+    if plotting.is_last_row(ax):
       ax.set_xlabel(display.XLABEL_CLASSIFICATION_ERROR)
     else:
       ax.set_xticklabels("")
@@ -309,14 +309,14 @@ def plot_alternative_metrics(
 
     if varying_set == xs:
       ax.set_xlabel(ax.my_xlabel)
-      if ax.is_first_col():
+      if plotting.is_first_col(ax):
         ax.set_ylabel(ax.my_ylabel)
     elif varying_set == ys:
-      if ax.is_last_row():
+      if plotting.is_last_row(ax):
         ax.set_xlabel(ax.my_xlabel)
       else:
         ax.set_xticklabels([])
-      if ax.is_first_col():
+      if plotting.is_first_col(ax):
         ax.set_ylabel(ax.my_ylabel)
     ax.grid(True, axis="x", which="minor")
     ax.grid(True, axis="both")

@@ -115,13 +115,13 @@ def plot(df_main: pd.DataFrame,
       ax.set_ylim(bottom=0.0, top=0.09)
       ax.set_xlim(0.05, 0.3)
       ax.set_xlabel(display.XLABEL_INET_ERROR)
-      if ax.is_first_row():
+      if plotting.is_first_row(ax):
         ax.set_title(bit_version, fontsize=6)
         ax.set_xlabel("")
         ax.set_xticklabels("")
       else:
         ax.set_ylim(bottom=0.0, top=0.05)
-      if ax.is_first_col():
+      if plotting.is_first_col(ax):
         if rescaling_method == "none":
           ax.set_ylabel(display.YLABEL_ECE_UNSCALED)
         elif rescaling_method == "temperature_scaling":

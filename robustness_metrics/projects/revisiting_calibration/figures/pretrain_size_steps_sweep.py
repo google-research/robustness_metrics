@@ -66,11 +66,11 @@ def plot(df_main: pd.DataFrame,
       ax.set_ylim(0, 0.05)
 
     # Labels:
-    if ax.is_first_col():
+    if plotting.is_first_col(ax):
       if plotting.row_num(ax) == 0: ax.set_ylabel("ECE\n(temp.-scaled)")
       if plotting.row_num(ax) == 1: ax.set_ylabel("ECE\n(temp.-scaled)")
 
-    if ax.is_last_row():
+    if plotting.is_last_row(ax):
       ax.set_xlabel("Classification error")
     ax.grid(True, axis="both", zorder=-2000)
 
@@ -82,7 +82,7 @@ def plot(df_main: pd.DataFrame,
               va="bottom", color="gray", fontsize=5)
 
     # Legend:
-    if ax.is_first_row():
+    if plotting.is_first_row(ax):
       _add_legend(ax, df_plot)
 
   plotting.apply_to_fig_text(g.fig, display.prettify)
@@ -125,7 +125,7 @@ def plot_with_confidence(
     ax.set_ylim(0, 0.05)
 
     # Labels:
-    if ax.is_first_col():
+    if plotting.is_first_col(ax):
       if rescaling_methods[plotting.row_num(ax)] == "none":
         ax.set_ylabel(display.YLABEL_ECE_UNSCALED)
       if rescaling_methods[plotting.row_num(ax)] == "temperature_scaling":
@@ -133,12 +133,12 @@ def plot_with_confidence(
       if rescaling_methods[plotting.row_num(ax)] == "tau":
         ax.set_ylabel(display.YLABEL_TEMP_FACTOR_SHORT)
 
-    if ax.is_last_row():
+    if plotting.is_last_row(ax):
       ax.set_xlabel("Classification error")
     ax.grid(True, axis="both", zorder=-2000)
 
     # Legend:
-    if ax.is_first_row():
+    if plotting.is_first_row(ax):
       _add_legend(ax, df_plot)
 
   g.fig.suptitle(f"Pretraining dataset: {display.prettify(upstream_dataset)}",

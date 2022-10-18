@@ -89,12 +89,12 @@ def plot(df_main: pd.DataFrame,
 
   # Format axes:
   for ax in g.axes.flatten():
-    if ax.is_first_row():
+    if plotting.is_first_row(ax):
       num_bins = col_order[plotting.col_num(ax)]
       ax.set_title(f"{num_bins} bins \n({40000/num_bins:1.0f} points/bin)",
                    fontsize=mpl.rcParams["axes.labelsize"])
 
-    if not ax.is_last_row():
+    if not plotting.is_last_row(ax):
       ax.set_xticklabels([])
 
     if plotting.row_num(ax) < 2:
@@ -106,24 +106,24 @@ def plot(df_main: pd.DataFrame,
 
     if row_order[plotting.row_num(ax)] == "none":
       # ax.set_ylim(0, 0.075)
-      if ax.is_first_col():
+      if plotting.is_first_col(ax):
         ax.set_ylabel(display.YLABEL_ECE_UNSCALED)
 
     elif row_order[plotting.row_num(ax)] == "temperature_scaling":
-      if ax.is_first_col():
+      if plotting.is_first_col(ax):
         ax.set_ylabel(display.YLABEL_ECE_TEMP_SCALED_SHORT)
 
     else:  # This is the over/underconfidence row.
       ax.set_ylim(0.85, 1.05)
       ax.yaxis.set_major_locator(mpl.ticker.MultipleLocator(0.05))
       plotting.annotate_confidence_plot(ax)
-      if ax.is_first_col():
+      if plotting.is_first_col(ax):
         ax.set_ylabel("Optimal\ntemp. factor")
 
     ax.set_xlim(0.15, 0.35)
     ax.xaxis.set_major_locator(mpl.ticker.MultipleLocator(0.1))
     plotting.show_spines(ax)
-    if ax.is_last_row():
+    if plotting.is_last_row(ax):
       ax.set_xlabel("Classification\nerror")
     ax.grid(axis="both")
 

@@ -201,3 +201,39 @@ def row_num(ax: mpl.axes.Axes) -> int:
 def col_num(ax: mpl.axes.Axes) -> int:
   """Gets the column number of a subplot axis in a figure."""
   return ax.get_subplotspec().colspan.start
+
+
+def is_first_row(ax: mpl.axes.Axes) -> bool:
+  """Returns if axis is in first row of a subplot."""
+  try:
+    return ax.is_first_row()
+  except AttributeError:
+    # matplotlib 3.6
+    return ax.get_subplotspec().is_first_row()
+
+
+def is_first_col(ax: mpl.axes.Axes) -> bool:
+  """Returns if axis is in first col of a subplot."""
+  try:
+    return ax.is_first_col()
+  except AttributeError:
+    # matplotlib 3.6
+    return ax.get_subplotspec().is_first_col()
+
+
+def is_last_row(ax: mpl.axes.Axes) -> bool:
+  """Returns if axis is in last row of a subplot."""
+  try:
+    return ax.is_last_row()
+  except AttributeError:
+    # matplotlib 3.6
+    return ax.get_subplotspec().is_last_row()
+
+
+def is_last_col(ax: mpl.axes.Axes) -> bool:
+  """Returns if axis is in last col of a subplot."""
+  try:
+    return ax.is_last_col()
+  except AttributeError:
+    # matplotlib 3.6
+    return ax.get_subplotspec().is_last_col()

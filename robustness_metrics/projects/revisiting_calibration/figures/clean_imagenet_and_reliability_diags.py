@@ -120,7 +120,7 @@ def plot(df_main: pd.DataFrame,
         ax.set_title("Unscaled")
       elif rescaling_method == "temperature_scaling":
         ax.set_title("Temperature-scaled")
-      if ax.is_first_col():
+      if plotting.is_first_col(ax):
         ax.set_ylabel("ECE")
 
   # Remaining panels: Reliability diagrams:

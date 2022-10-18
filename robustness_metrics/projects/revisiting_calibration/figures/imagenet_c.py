@@ -103,29 +103,29 @@ def plot(df_main: pd.DataFrame,
     if rescaling_methods[plotting.row_num(ax)] == "none":
       ax.set_ylim(0, 0.25)
       ax.set_yticks(np.arange(0, 0.272, 0.05))
-      if ax.is_first_col():
+      if plotting.is_first_col(ax):
         ax.set_ylabel(display.YLABEL_ECE_UNSCALED)
 
     elif rescaling_methods[plotting.row_num(ax)] == "temperature_scaling":
       ax.set_ylim(0, 0.15)
       ax.set_yticks(np.arange(0, 0.172, 0.05))
-      if ax.is_first_col():
+      if plotting.is_first_col(ax):
         ax.set_ylabel(display.YLABEL_ECE_TEMP_SCALED)
 
     elif rescaling_methods[plotting.row_num(ax)] == "tau":
       ax.set_ylim(0.6, 1.6)
       plotting.annotate_confidence_plot(ax)
-      if ax.is_first_col():
+      if plotting.is_first_col(ax):
         ax.set_ylabel(display.YLABEL_TEMP_FACTOR)
 
     ax.set_xlim(0.0, 0.8)
     ax.set_xticks(np.arange(0, 0.81, 0.2))
     plotting.show_spines(ax)
-    if ax.is_last_row():
+    if plotting.is_last_row(ax):
       ax.set_xlabel(display.XLABEL_INET_C_ERROR)
     ax.grid(axis="both")
 
-    if not ax.is_first_col():
+    if not plotting.is_first_col(ax):
       ax.set_yticklabels("")
 
   g.fig.tight_layout()
@@ -274,19 +274,19 @@ def plot_error_increase_vs_model_size(
     plotting.show_spines(ax)
     ax.xaxis.set_major_locator(mpl.ticker.MultipleLocator(1))
     ax.yaxis.set_minor_locator(mpl.ticker.MultipleLocator(0.02))
-    if ax.is_first_col() and plotting.row_num(ax) == 0:
+    if plotting.is_first_col(ax) and plotting.row_num(ax) == 0:
       ax.set_ylabel("Classification error\n(Δ to largest model)")
-    elif ax.is_first_col() and plotting.row_num(ax) == 1:
+    elif plotting.is_first_col(ax) and plotting.row_num(ax) == 1:
       ax.set_ylabel("ECE\n(Δ to largest model)")
     else:
       ax.set_yticklabels([])
 
-    if ax.is_first_row():
+    if plotting.is_first_row(ax):
       ax.set_title(family_order[plotting.col_num(ax)])
       ax.set_ylim(-0.05 if compact_layout else -0.1, 0.3)
       ax.yaxis.set_major_locator(mpl.ticker.MultipleLocator(0.1))
 
-    if ax.is_last_row():
+    if plotting.is_last_row(ax):
       ax.set_xlabel("Corruption\nseverity")
       ax.set_ylim(-0.01 if compact_layout else -0.04, 0.03)
       ax.yaxis.set_major_locator(mpl.ticker.MultipleLocator(0.02))

@@ -123,7 +123,7 @@ def plot(df_main: pd.DataFrame,
     ax.set_xlim(np.log10(0.1), np.log10(1.0))
     xticks = np.arange(0.1, 1.0 + 0.001, 0.1)
     ax.set_xticks(np.log10(xticks))
-    if ax.is_last_row():
+    if plotting.is_last_row(ax):
       show = [0.1, 0.2, 0.4, 1.0]
       xticklabels = [f"{x:0.1f}"if x in show else "" for x in xticks]
       ax.set_xticklabels(xticklabels)
@@ -134,7 +134,7 @@ def plot(df_main: pd.DataFrame,
     ax.set_ylim(np.log10(0.01), np.log10(0.8))
     yticks = np.arange(0.05, 0.8 + 0.001, 0.05)
     ax.set_yticks(np.log10(yticks))
-    if ax.is_first_col():
+    if plotting.is_first_col(ax):
       show = [0.1, 0.2, 0.4, 0.8]
       yticklabels = [f"{x:0.1f}"if x in show else "" for x in yticks]
       ax.set_yticklabels(yticklabels)
@@ -144,9 +144,9 @@ def plot(df_main: pd.DataFrame,
     ax.grid(True, axis="both")
 
     # Labels:
-    if ax.is_last_row():
+    if plotting.is_last_row(ax):
       ax.set_xlabel(display.XLABEL_CLASSIFICATION_ERROR)
-    if ax.is_first_col():
+    if plotting.is_first_col(ax):
       ax.set_ylabel(display.YLABEL_ECE_TEMP_SCALED_SHORT)
   plotting.apply_to_fig_text(g.fig, display.prettify)
   g.fig.tight_layout(w_pad=0)
