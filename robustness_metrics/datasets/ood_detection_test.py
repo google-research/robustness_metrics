@@ -37,11 +37,19 @@ class OodDetectionDatasetsTest(parameterized.TestCase, tf.test.TestCase):
       ("cifar10_vs_dtd", [224, 224, 3]),
       ("cifar10_vs_places365", [224, 224, 3]),
       ("cifar10_vs_svhn", [224, 224, 3]),
+      ("cifar10_vs_cifar100(ood_with_positive_labels=True)", [32, 32, 3]),
+      ("cifar10_vs_dtd(ood_with_positive_labels=True)", [224, 224, 3]),
+      ("cifar10_vs_places365(ood_with_positive_labels=True)", [224, 224, 3]),
+      ("cifar10_vs_svhn(ood_with_positive_labels=True)", [224, 224, 3]),
       # cifar100 versus *
       ("cifar100_vs_cifar10", [32, 32, 3]),
       ("cifar100_vs_dtd", [224, 224, 3]),
       ("cifar100_vs_places365", [224, 224, 3]),
       ("cifar100_vs_svhn", [224, 224, 3]),
+      ("cifar100_vs_cifar10(ood_with_positive_labels=True)", [32, 32, 3]),
+      ("cifar100_vs_dtd(ood_with_positive_labels=True)", [224, 224, 3]),
+      ("cifar100_vs_places365(ood_with_positive_labels=True)", [224, 224, 3]),
+      ("cifar100_vs_svhn(ood_with_positive_labels=True)", [224, 224, 3]),
   ])
   def test_that_it_loads_with_default(self,
                                       ds_name,
@@ -69,16 +77,21 @@ class OodDetectionDatasetsTest(parameterized.TestCase, tf.test.TestCase):
       # The first NUM_EXAMPLES datapoints are the in-distribution datapoints.
       # Their labels are 1's. Conversely, the last NUM_EXAMPLES datapoints are
       # the out-of-distribution datapoints, with labels equal to 0's.
-      #
+      # The definition of the 1's and 0's is reversed when the argument
+      # `ood_with_positive_labels` is set to True.
+      in_label = 0 if "ood_with_positive_labels=True" in ds_name else 1
+      ood_label = 1 if "ood_with_positive_labels=True" in ds_name else 0
       # Also, with no preprocess_fn specified (i.e., default), the images for
       # the in- and out-of-distribution datasets can have different shapes.
       if batch_index * batch_size <= NUM_EXAMPLES:
-        self.assertAllEqual(features["label"], [1] * batch_size)
-        self.assertAllEqual(features["metadata"]["label"], [1] * batch_size)
+        in_labels = [in_label] * batch_size
+        self.assertAllEqual(features["label"], in_labels)
+        self.assertAllEqual(features["metadata"]["label"], in_labels)
         self.assertEqual(features["image"].shape, in_ds_expected_shape)
       else:
-        self.assertAllEqual(features["label"], [0] * batch_size)
-        self.assertAllEqual(features["metadata"]["label"], [0] * batch_size)
+        ood_labels = [ood_label] * batch_size
+        self.assertAllEqual(features["label"], ood_labels)
+        self.assertAllEqual(features["metadata"]["label"], ood_labels)
         self.assertEqual(features["image"].shape, out_ds_expected_shape)
 
   @parameterized.parameters([
@@ -87,11 +100,19 @@ class OodDetectionDatasetsTest(parameterized.TestCase, tf.test.TestCase):
       ("cifar10_vs_dtd",),
       ("cifar10_vs_places365",),
       ("cifar10_vs_svhn",),
+      ("cifar10_vs_cifar100(ood_with_positive_labels=True)",),
+      ("cifar10_vs_dtd(ood_with_positive_labels=True)",),
+      ("cifar10_vs_places365(ood_with_positive_labels=True)",),
+      ("cifar10_vs_svhn(ood_with_positive_labels=True)",),
       # cifar100 versus *
       ("cifar100_vs_cifar10",),
       ("cifar100_vs_dtd",),
       ("cifar100_vs_places365",),
       ("cifar100_vs_svhn",),
+      ("cifar100_vs_cifar10(ood_with_positive_labels=True)",),
+      ("cifar100_vs_dtd(ood_with_positive_labels=True)",),
+      ("cifar100_vs_places365(ood_with_positive_labels=True)",),
+      ("cifar100_vs_svhn(ood_with_positive_labels=True)",),
   ])
   def test_that_it_preprocesses_and_batches(self, name, batch_size=8):
 

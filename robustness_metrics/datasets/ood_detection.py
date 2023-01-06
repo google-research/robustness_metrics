@@ -47,17 +47,24 @@ def _keep_common_fields(feature, spec):
 
 
 def _concatenate(in_ds: tf.data.Dataset,
-                 out_ds: tf.data.Dataset) -> tf.data.Dataset:
+                 out_ds: tf.data.Dataset,
+                 ood_with_positive_labels: bool = False) -> tf.data.Dataset:
   """Concatenate in_ds and out_ds, making sure they have compatible specs."""
   in_spec = in_ds.element_spec
   out_spec = out_ds.element_spec
 
   def format_in_ds(feature):
-    feature = _set_label_to_one(feature)
+    if ood_with_positive_labels:
+      feature = _set_label_to_zero(feature)
+    else:
+      feature = _set_label_to_one(feature)
     return _keep_common_fields(feature, out_spec)
 
   def format_out_ds(feature):
-    feature = _set_label_to_zero(feature)
+    if ood_with_positive_labels:
+      feature = _set_label_to_one(feature)
+    else:
+      feature = _set_label_to_zero(feature)
     return _keep_common_fields(feature, in_spec)
 
   return in_ds.map(format_in_ds).concatenate(out_ds.map(format_out_ds))
@@ -76,21 +83,29 @@ def _make_element_id_unique(dataset_tag: str):
 class OodDetectionDataset(base.Dataset, metaclass=abc.ABCMeta):
   """A dataset made of a pair of one in- and one out-of-distribution datasets.
 
-  In this binary (detection) task, the in-distribution dataset has labels 1 and
-  the out-of-distrbution dataset has labels 0.
+  In this binary (detection) task, the in-distribution dataset typically has
+  labels 1 and the out-of-distrbution dataset has labels 0. The other convention
+  also exists (https://arxiv.org/pdf/1610.02136.pdf), which can be controlled by
+  the argument `ood_with_positive_labels`.
 
   See https://arxiv.org/pdf/2106.03004.pdf for more background.
   """
+
+  def __init__(self, ood_with_positive_labels: bool = False):
+    """Initializes the OodDetectionDataset."""
+    self._ood_with_positive_labels = ood_with_positive_labels
 
   @property
   def info(self) -> base.DatasetInfo:
     return base.DatasetInfo(num_classes=2)
 
-  @abc.abstractproperty
+  @property
+  @abc.abstractmethod
   def in_dataset(self) -> base.Dataset:
     """The in-distribution dataset."""
 
-  @abc.abstractproperty
+  @property
+  @abc.abstractmethod
   def out_dataset(self) -> base.Dataset:
     """The out-of-distribution dataset."""
 
@@ -104,7 +119,7 @@ class OodDetectionDataset(base.Dataset, metaclass=abc.ABCMeta):
     out_ds = self.out_dataset.load(preprocess_fn)
     out_ds = out_ds.map(_make_element_id_unique("out_ds"))
 
-    return _concatenate(in_ds, out_ds)
+    return _concatenate(in_ds, out_ds, self._ood_with_positive_labels)
 
 
 # The choices of the pairing of the datasets are motivated by the setting of:
