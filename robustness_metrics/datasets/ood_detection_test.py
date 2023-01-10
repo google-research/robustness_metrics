@@ -24,6 +24,7 @@ import tensorflow_datasets as tfds
 
 C10 = rm_tfds.Cifar10Dataset
 C100 = rm_tfds.Cifar100Dataset
+ImageNet = rm_tfds.ImageNetDataset
 NUM_EXAMPLES = 32
 
 
@@ -50,6 +51,9 @@ class OodDetectionDatasetsTest(parameterized.TestCase, tf.test.TestCase):
       ("cifar100_vs_dtd(ood_with_positive_labels=True)", [224, 224, 3]),
       ("cifar100_vs_places365(ood_with_positive_labels=True)", [224, 224, 3]),
       ("cifar100_vs_svhn(ood_with_positive_labels=True)", [224, 224, 3]),
+      # imagenet versus *
+      ("imagenet_vs_places365", [224, 224, 3]),
+      ("imagenet_vs_places365(ood_with_positive_labels=True)", [224, 224, 3]),
   ])
   def test_that_it_loads_with_default(self,
                                       ds_name,
@@ -60,7 +64,10 @@ class OodDetectionDatasetsTest(parameterized.TestCase, tf.test.TestCase):
                   f" batch_size; received {NUM_EXAMPLES} and {batch_size}.")
     assert NUM_EXAMPLES % batch_size == 0, assert_msg
 
-    in_ds_expected_shape = [batch_size] + [32, 32, 3]
+    if "imagenet_vs" in ds_name:
+      in_ds_expected_shape = [batch_size] + [224, 224, 3]
+    else:
+      in_ds_expected_shape = [batch_size] + [32, 32, 3]
     out_ds_expected_shape = [batch_size] + out_ds_expected_shape
 
     # The in- and out-of-distribution datasets are concatenated, with a total
@@ -113,6 +120,9 @@ class OodDetectionDatasetsTest(parameterized.TestCase, tf.test.TestCase):
       ("cifar100_vs_dtd(ood_with_positive_labels=True)",),
       ("cifar100_vs_places365(ood_with_positive_labels=True)",),
       ("cifar100_vs_svhn(ood_with_positive_labels=True)",),
+      # imagenet versus *
+      ("imagenet_vs_places365",),
+      ("imagenet_vs_places365(ood_with_positive_labels=True)",),
   ])
   def test_that_it_preprocesses_and_batches(self, name, batch_size=8):
 
@@ -150,6 +160,9 @@ class OodDetectionDatasetsTest(parameterized.TestCase, tf.test.TestCase):
       ("cifar100_vs_places365", C100, rm_tfds.Places365Dataset,
        ["image", "label", "metadata"], ["element_id", "label"]),
       ("cifar100_vs_svhn", C100, rm_tfds.SvhnDataset,
+       ["image", "label", "metadata"], ["element_id", "label"]),
+      # imagenet versus *
+      ("imagenet_vs_places365", ImageNet, rm_tfds.Places365Dataset,
        ["image", "label", "metadata"], ["element_id", "label"]),
   ])
   def test_common_feature_keys(self, ds_name, in_ds_type, out_ds_type,

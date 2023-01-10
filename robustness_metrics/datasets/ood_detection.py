@@ -226,3 +226,18 @@ class Cifar100VsSvhnDataset(OodDetectionDataset):
   @property
   def out_dataset(self) -> base.Dataset:
     return rm_tfds.SvhnDataset()
+
+
+# This choice of dataset pairing is motivated by the setting of:
+#   https://arxiv.org/pdf/2207.07411.pdf.
+@base.registry.register("imagenet_vs_places365")
+class ImagenetVsPlaces365Dataset(OodDetectionDataset):
+  """The Imagenet vs. Places365 ood detection dataset."""
+
+  @property
+  def in_dataset(self) -> base.Dataset:
+    return rm_tfds.ImageNetDataset()
+
+  @property
+  def out_dataset(self) -> base.Dataset:
+    return rm_tfds.Places365Dataset()

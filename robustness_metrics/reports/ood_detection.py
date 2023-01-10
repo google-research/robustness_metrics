@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Reports about OOD detection for {cifar10, cifar100} versus other datasets."""
+"""OOD detection reports for {cifar10, cifar100, Imagenet} vs other datasets."""
 from typing import List
 from robustness_metrics.reports import base
 
@@ -33,7 +33,9 @@ class OodDetectionReport(base.UnionReport):
     metrics = ["auc_pr", "auc_roc", "fpr95"]
     for dataset in self._datasets:
       for metric in metrics:
-        yield base.MeasurementSpec(dataset, metric)
+        arg = "ood_with_positive_labels=True" in dataset
+        metric_with_arg = f"{metric}(one_minus_msp={arg})"
+        yield base.MeasurementSpec(dataset, metric_with_arg)
 
 
 @base.registry.register("cifar10_ood_detection_report")
@@ -41,7 +43,11 @@ class Cifar10OodDetectionReport(OodDetectionReport):
 
   def __init__(self):
     ood_datasets = ["cifar100", "dtd", "places365", "svhn"]
-    super().__init__(datasets_specs=[f"cifar10_vs_{d}" for d in ood_datasets])
+    datasets_specs = [
+        f"cifar10_vs_{d}(ood_with_positive_labels={arg})" for d in ood_datasets  # pylint: disable=g-complex-comprehension
+        for arg in [True, False]
+    ]
+    super().__init__(datasets_specs=datasets_specs)
 
 
 @base.registry.register("cifar100_ood_detection_report")
@@ -49,4 +55,19 @@ class Cifar100OodDetectionReport(OodDetectionReport):
 
   def __init__(self):
     ood_datasets = ["cifar10", "dtd", "places365", "svhn"]
-    super().__init__(datasets_specs=[f"cifar100_vs_{d}" for d in ood_datasets])
+    datasets_specs = [
+        f"cifar100_vs_{d}(ood_with_positive_labels={arg})" for d in ood_datasets  # pylint: disable=g-complex-comprehension
+        for arg in [True, False]
+    ]
+    super().__init__(datasets_specs=datasets_specs)
+
+
+@base.registry.register("imagenet_ood_detection_report")
+class ImagenetOodDetectionReport(OodDetectionReport):
+
+  def __init__(self):
+    datasets_specs = [
+        f"imagenet_vs_places365(ood_with_positive_labels={arg})"
+        for arg in [True, False]
+    ]
+    super().__init__(datasets_specs=datasets_specs)

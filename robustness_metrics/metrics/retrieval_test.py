@@ -128,5 +128,45 @@ class AucRocAndFalsePositiveRate95Test(parameterized.TestCase,
     self.assertDictEqual(metric.result(), {metric_name: result})
 
 
+class MspTest(parameterized.TestCase, tf.test.TestCase):
+
+  @parameterized.parameters(
+      ("auc_roc",),
+      ("fpr95",),
+      ("auc_pr",),
+  )
+  def test_setting_one_minus_msp(self, metric_name):
+    msp_metric = rm.metrics.get(f"{metric_name}(one_minus_msp=False)")
+    msp_metric.add_predictions(
+        rm.common.types.ModelPredictions(predictions=[[.7, .1, .2]]),
+        metadata={
+            "label": 0,
+            "element_id": 0
+        })
+    msp_metric.add_predictions(
+        rm.common.types.ModelPredictions(predictions=[[.2, .5, .3]]),
+        metadata={
+            "label": 1,
+            "element_id": 1
+        })
+
+    one_minus_msp_metric = rm.metrics.get(f"{metric_name}(one_minus_msp=True)")
+    one_minus_msp_metric.add_predictions(
+        # msp = 0.3 so that 1 - msp = 0.7, as above.
+        rm.common.types.ModelPredictions(predictions=[[.1, .3, .2]]),
+        metadata={
+            "label": 0,
+            "element_id": 0
+        })
+    one_minus_msp_metric.add_predictions(
+        # msp = 0.5 so that 1 - msp = 0.5, as above.
+        rm.common.types.ModelPredictions(predictions=[[.5, .0, .3]]),
+        metadata={
+            "label": 1,
+            "element_id": 1
+        })
+    self.assertAllClose(msp_metric.result(), one_minus_msp_metric.result())
+
+
 if __name__ == "__main__":
   tf.test.main()

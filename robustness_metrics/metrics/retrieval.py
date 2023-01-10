@@ -24,7 +24,8 @@ import sklearn.metrics
 
 
 def _format_predictions(predictions: np.ndarray,
-                        is_binary_classification: bool):
+                        is_binary_classification: bool,
+                        one_minus_msp: bool = False):
   """Check and format the tensor of predictions."""
   if is_binary_classification:
     assert_msg = ("Expect binary classification: predictions must have shape "
@@ -41,6 +42,10 @@ def _format_predictions(predictions: np.ndarray,
     # TODO(rjenatton): Generalize this logic to other known schemes, e.g.,
     #                  entropy(predictions, axis=-1) or Mahalanobis distance.
     predictions = np.max(predictions, axis=-1)
+    # Depending on the convention used in labeling the IN and OOD datasets (see
+    # https://arxiv.org/pdf/1610.02136.pdf), we may have to consider 1 - MSP.
+    if one_minus_msp:
+      predictions = 1.0 - predictions
   return predictions
 
 
@@ -48,9 +53,25 @@ class BinaryRetrievalMetric(
     metrics_base.FullBatchMetric, metaclass=abc.ABCMeta):
   """Abstract class for binary retrieval metrics such as AUC-PR and AUC-ROC."""
 
-  def __init__(self, dataset_info=None, is_binary_classification=False):
+  def __init__(self,
+               dataset_info=None,
+               is_binary_classification: bool = False,
+               one_minus_msp: bool = False):
+    """Initializes the metric.
+
+    Args:
+        dataset_info: A datasets.DatasetInfo object.
+        is_binary_classification: If the metric is used for binary
+          classification. If this is not the case, the mutli-class prediction is
+          aggregated with "Maximum over softmax probabilities" (MSP) as usually
+          done for OOD detection.
+        one_minus_msp: If True, returns 1 - MSP instead of MSP. This is relevant
+          depending on the labeling convention of the IN and OOD datasets for
+          OOD detection.
+    """
     super().__init__(dataset_info)
     self.is_binary_classification = is_binary_classification
+    self.one_minus_msp = one_minus_msp
 
   @abc.abstractmethod
   def _get_metric(self, labels: np.ndarray,
@@ -68,7 +89,8 @@ class BinaryRetrievalMetric(
     labels = np.asarray(self._labels)
     predictions = np.asarray(self._predictions)
     predictions = _format_predictions(predictions,
-                                      self.is_binary_classification)
+                                      self.is_binary_classification,
+                                      self.one_minus_msp)
     assert_msg = ("Labels/predictions do not match; respective shapes"
                   f" {labels.shape} and {predictions.shape}.")
     assert len(labels) == len(predictions), assert_msg
