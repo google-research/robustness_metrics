@@ -1221,10 +1221,19 @@ class NegativeLogLikelihood(metrics_base.KerasMetric):
 
   If the true label is k, while the predicted vector of probabilities is
   [p_1, ..., p_K], then the negative log likelihood is -log(p_k).
+
+  If soft_labels=True and the true label vector is q, we compute instead the
+  negative log likelihood as -sum_k q_k log(p_k).
   """
 
-  def __init__(self, dataset_info=None, use_dataset_labelset=False):
-    metric = tf.keras.metrics.SparseCategoricalCrossentropy()
+  def __init__(self,
+               dataset_info=None,
+               use_dataset_labelset=False,
+               soft_labels=False):
+    if soft_labels:
+      metric = tf.keras.metrics.CategoricalCrossentropy()
+    else:
+      metric = tf.keras.metrics.SparseCategoricalCrossentropy()
     super().__init__(
         dataset_info, metric, "nll", take_argmax=False, one_hot=False,
         use_dataset_labelset=use_dataset_labelset)

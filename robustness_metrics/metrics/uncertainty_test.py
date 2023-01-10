@@ -53,7 +53,13 @@ _GCE_ISOTONIC_REGR_SPLIT = ("gce(binning_scheme='adaptive',max_prob=True,"
 _UNCERTAINTY_METRICS = [
     "ece", "nll", "brier", _GCE_DEFAULT, _GCE_EXPLICIT_DEFAULT,
     _GCE_TEMP_SCALING_ALL, _GCE_ISOTONIC_REGR_ALL, _GCE_TEMP_SCALING_SPLIT,
-    _GCE_ISOTONIC_REGR_SPLIT, "temperature_scaling"]
+    _GCE_ISOTONIC_REGR_SPLIT, "temperature_scaling", "nll(soft_labels=True)"]
+
+
+def _get_label(label, metric_name, num_classes=4):
+  if metric_name == "nll(soft_labels=True)":
+    label = [[0.1] * num_classes]
+  return label
 
 
 def _get_info(num_classes=2):
@@ -99,12 +105,12 @@ class KerasMetricTest(parameterized.TestCase, tf.test.TestCase):
         rm.datasets.base.DatasetInfo(num_classes=3, appearing_classes=[0, 1]))
     metric.add_predictions(
         rm.common.types.ModelPredictions(predictions=[[.2, .8], [.7, .3]]),
-        metadata={"label": 1, "element_id": 1})
+        metadata={"label": _get_label(1, name, 2), "element_id": 1})
     metric_ls.add_predictions(
         rm.common.types.ModelPredictions(
             predictions=[_normalize([.2, .8, .3]),
                          _normalize([.7, .3, .5])]),
-        metadata={"label": 1, "element_id": 1})
+        metadata={"label": _get_label(1, name), "element_id": 1})
     expected_output = {
         _GCE_DEFAULT: {"gce": .45},
         _GCE_EXPLICIT_DEFAULT: {"gce": 0.45},
@@ -116,6 +122,9 @@ class KerasMetricTest(parameterized.TestCase, tf.test.TestCase):
         "nll": {"nll": -math.log((.8 + .3) / 2)},
         "brier": {"brier": ((.2 + .7) / 2)**2 + ((.2 + .7) / 2)**2},
         "temperature_scaling": {"beta": 1.6040830888247386e+33},
+        "nll(soft_labels=True)": {
+            "nll": (- 0.1 * math.log((.8 + .3) / 2)
+                    - 0.1 * math.log((.2 + .7) / 2))},
     }[name]
     if name == _GCE_TEMP_SCALING_SPLIT:
       self.assertAlmostEqual(metric.result()["gce"],
@@ -142,18 +151,18 @@ class KerasMetricTest(parameterized.TestCase, tf.test.TestCase):
         rm.datasets.base.DatasetInfo(num_classes=3, appearing_classes=[0, 2]))
     metric.add_predictions(
         rm.common.types.ModelPredictions(predictions=[[.2, .8]]),
-        metadata={"label": 1, "element_id": 1})
+        metadata={"label": _get_label(1, name, 2), "element_id": 1})
     metric_ls.add_predictions(
         rm.common.types.ModelPredictions(
             predictions=[_normalize([.2, .5, .8])]),
-        metadata={"label": 2, "element_id": 1})
+        metadata={"label": _get_label(2, name), "element_id": 1})
     metric.add_predictions(
         rm.common.types.ModelPredictions(predictions=[[.3, .7]]),
-        metadata={"label": 0, "element_id": 2})
+        metadata={"label": _get_label(0, name, 2), "element_id": 2})
     metric_ls.add_predictions(
         rm.common.types.ModelPredictions(
             predictions=[_normalize([.3, .8, .7])]),
-        metadata={"label": 0, "element_id": 2})
+        metadata={"label": _get_label(0, name), "element_id": 2})
     expected_output = {
         _GCE_DEFAULT: {"gce": 0.51478150},
         _GCE_EXPLICIT_DEFAULT: {"gce": 0.5147815},
@@ -165,6 +174,9 @@ class KerasMetricTest(parameterized.TestCase, tf.test.TestCase):
         "nll": {"nll": 0.5 * (-math.log(.8) - math.log(.3))},
         "brier": {"brier": 0.5 * (.2**2 + .2**2 + .7**2 + .7**2)},
         "temperature_scaling": {"beta": 0.4177706241607666},
+        "nll(soft_labels=True)": {
+            "nll": (- 0.5 * 0.1 * (math.log(.2) + math.log(.8))
+                    - 0.5 * 0.1 * (math.log(.3) + math.log(.7)))},
     }[name]
     if name == _GCE_TEMP_SCALING_SPLIT:
       self.assertAlmostEqual(metric.result()["gce"],
@@ -193,19 +205,19 @@ class KerasMetricTest(parameterized.TestCase, tf.test.TestCase):
     metric.add_predictions(
         rm.common.types.ModelPredictions(
             predictions=[[.2, .4, .4], [.5, .3, .2]]),
-        metadata={"label": 2})
+        metadata={"label": _get_label(2, name, 3)})
     metric_ls.add_predictions(
         rm.common.types.ModelPredictions(
             predictions=[_normalize([.5, .2, .4, .4]),
                          _normalize([.9, .5, .3, .2])]),
-        metadata={"label": 3, "element_id": 1})
+        metadata={"label": _get_label(3, name), "element_id": 1})
     metric.add_predictions(
         rm.common.types.ModelPredictions(predictions=[[.8, .15, .05]]),
-        metadata={"label": 1, "element_id": 2})
+        metadata={"label": _get_label(1, name, 3), "element_id": 2})
     metric_ls.add_predictions(
         rm.common.types.ModelPredictions(
             predictions=[_normalize([.4, .8, .15, .05])]),
-        metadata={"label": 2, "element_id": 2})
+        metadata={"label": _get_label(2, name), "element_id": 2})
     expected_output = {
         _GCE_DEFAULT:
             {"gce": 0.6174544},
@@ -226,7 +238,12 @@ class KerasMetricTest(parameterized.TestCase, tf.test.TestCase):
         "brier":
             {"brier": 0.5 * (((.2 + .5) / 2)**2 + ((.4 + .3) / 2)**2 +
                              ((.6 + .8) / 2)**2 + .8**2 + .85**2 + .05**2)},
-        "temperature_scaling": {"beta": -0.23755066096782684}
+        "temperature_scaling": {"beta": -0.23755066096782684},
+        "nll(soft_labels=True)": {
+            "nll": (- 0.5 * 0.1 * (math.log(.8) + math.log(.15) + math.log(.05))
+                    - 0.5 * 0.1 * (math.log((.2 + .5) / 2)
+                                   + math.log((.4 + .3) / 2)
+                                   + math.log((.4 + .2) / 2)))},
     }[name]
     if name == _GCE_TEMP_SCALING_SPLIT:
       self.assertAlmostEqual(metric.result()["gce"],
@@ -238,6 +255,30 @@ class KerasMetricTest(parameterized.TestCase, tf.test.TestCase):
     else:
       self.assertDictsAlmostEqual(metric.result(), expected_output)
       self.assertDictsAlmostEqual(metric_ls.result(), expected_output)
+
+  def test_add_batch_nll(self):
+    metric = rm.metrics.get("nll(soft_labels=False)")
+    metric.add_batch(
+        tf.constant([[.2, .8], [.7, .3], [.4, .6]]),
+        label=tf.constant([1, 0, 0]))
+    self.assertDictsAlmostEqual(
+        metric.result(),
+        {"nll": -1. / 3 * (math.log(.8) + math.log(.7) + math.log(.4))})
+
+    # Case of soft labels, with `use_dataset_labelset`.
+    metric_soft_labels = rm.metrics.get(
+        "nll(soft_labels=True, use_dataset_labelset=True)",
+        rm.datasets.base.DatasetInfo(num_classes=3, appearing_classes=[0, 1]))
+    metric_soft_labels.add_batch(
+        tf.constant([[.2, .8, -1], [.7, .3, -1], [.4, .6, -1]]),
+        label=tf.constant([[.1, .9, -1], [.3, .7, -1], [.5, .5, -1]]))
+    self.assertDictsAlmostEqual(
+        metric_soft_labels.result(), {
+            "nll":
+                -1. / 3 *
+                (.1 * math.log(.2) + .9 * math.log(.8) + .3 * math.log(.7) +
+                 .7 * math.log(.3) + .5 * math.log(.4) + .5 * math.log(.6))
+        })
 
 
 class IsotonicRegressionTest(tf.test.TestCase):

@@ -100,12 +100,18 @@ get = registry.get
 
 
 def _map_labelset(predictions, label, appearing_classes):
+  """Indexes the predictions and label according to `appearing_classes`."""
   np_predictions = np.array(predictions)
   assert len(np_predictions.shape) == 2
   if appearing_classes:
     predictions = np_predictions[:, appearing_classes]
     predictions /= np.sum(predictions, axis=-1, keepdims=True)
-    label = appearing_classes.index(label)
+    np_label = np.asarray(label)
+    if np_label.ndim == 0:
+      label = appearing_classes.index(label)
+    else:
+      assert np_label.ndim == 2
+      label = np_label[:, appearing_classes]
   return predictions, label
 
 
@@ -247,8 +253,11 @@ class KerasMetric(Metric):
           model_predictions, self._appearing_classes, axis=-1)
       model_predictions /= tf.math.reduce_sum(
           model_predictions, axis=-1, keepdims=True)
-      label = tf.convert_to_tensor([
-          self._appearing_classes.index(x) for x in label])
+      if tf.rank(label) == 1:
+        label = tf.convert_to_tensor([
+            self._appearing_classes.index(x) for x in label])
+      else:
+        label = tf.gather(label, self._appearing_classes, axis=-1)
     self._add_prediction(
         predictions=model_predictions,
         label=label,
