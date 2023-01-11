@@ -101,8 +101,8 @@ get = registry.get
 
 def _map_labelset(predictions, label, appearing_classes):
   """Indexes the predictions and label according to `appearing_classes`."""
-  np_predictions = np.array(predictions)
-  assert len(np_predictions.shape) == 2
+  np_predictions = np.asarray(predictions)
+  assert np_predictions.ndim == 2
   if appearing_classes:
     predictions = np_predictions[:, appearing_classes]
     predictions /= np.sum(predictions, axis=-1, keepdims=True)
