@@ -876,14 +876,15 @@ class OracleCollaborativeAccuracy(metrics_base.KerasMetric):
       use_dataset_labelset=False,
       fraction=0.01,
       num_bins=100,
-      dtype=None):
+      dtype=None,
+      take_argmax=False):
     metric = _KerasOracleCollaborativeAccuracyMetric(
         fraction=fraction, num_bins=num_bins, dtype=dtype)
     super().__init__(
         dataset_info,
         metric,
         "collaborative_accuracy",
-        take_argmax=False,
+        take_argmax=take_argmax,
         one_hot=False,
         use_dataset_labelset=use_dataset_labelset)
 
@@ -1015,7 +1016,9 @@ class OracleCollaborativeAUC(OracleCollaborativeAccuracy):
                num_thresholds: int = 200,
                curve: str = "ROC",
                summation_method: str = "interpolation",
-               dtype: Optional[tf.DType] = None):
+               dtype: Optional[tf.DType] = None,
+               default_binning_score_to_confidence: bool = False,
+               take_argmax: bool = False):
     """Constructs an expected oracle-collaborative AUC Keras metric.
 
     Args:
@@ -1040,12 +1043,19 @@ class OracleCollaborativeAUC(OracleCollaborativeAccuracy):
         increasing intervals and right summation for decreasing intervals;
         'majoring' does the opposite.
       dtype: Data type of this metric.
+      default_binning_score_to_confidence: When True, makes it possible to
+        reproduce the evaluation setup of https://arxiv.org/pdf/2207.07411.pdf,
+        wherein the binning depends on the confidence. For more details, see
+        https://github.com/google/uncertainty-baselines/blob/main/baselines/jft/deterministic.py#L610.
+      take_argmax: If set, the argmax of the predictions will be sent to the
+        metric rather than the predictions themselves.
     """
     super().__init__(
         dataset_info=dataset_info,
         use_dataset_labelset=use_dataset_labelset,
         fraction=oracle_fraction,
-        num_bins=num_bins)
+        num_bins=num_bins,
+        take_argmax=take_argmax)
 
     metric = _KerasOracleCollaborativeAUCMetric(
         oracle_fraction=oracle_fraction,
@@ -1057,6 +1067,32 @@ class OracleCollaborativeAUC(OracleCollaborativeAccuracy):
         dtype=dtype)
     self._metric = metric
     self._key_name = "collaborative_auc"
+    self._default_binning_score_to_confidence = (
+        default_binning_score_to_confidence)
+
+  @tf.function
+  def _add_prediction(self,
+                      predictions,
+                      label,
+                      average_predictions,
+                      custom_binning_score=None):
+    """Feeds the given label and prediction to the underlying Keras metric.
+
+    Args:
+      predictions: The batch of predictions, one for each example in the batch.
+      label: The batch of labels, one for each example in the batch.
+      average_predictions: If set, when multiple predictions are present for
+        a dataset element, they will be averaged before processing.
+      custom_binning_score: (Optional) Custom score to use for binning
+        predictions, one for each example in the batch. If not specified, the
+        default is to bin by predicted probability. The elements of
+        custom_binning_score are expected to all be in [0, 1].
+    """
+    if (custom_binning_score is None and
+        self._default_binning_score_to_confidence):
+      custom_binning_score = tf.reduce_max(predictions, axis=-1)
+    super()._add_prediction(predictions, label, average_predictions,
+                            custom_binning_score)
 
 
 @metrics_base.registry.register("calibration_auc")

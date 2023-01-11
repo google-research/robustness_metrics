@@ -1834,6 +1834,42 @@ class OracleCollaborativeAUCTest(tf.test.TestCase):
 
     self.assertAllClose(result, 0.625)
 
+  def test_wrapped_oracle_collaborative_auc_with_confidence_binning_score(self):
+    y_true = np.array([1., 0., 0., 1.])
+    y_pred = np.array([[.31, .79], [.78, .32], [.17, .83], [.64, .36]])
+    confidence = np.max(y_pred, axis=-1)
+
+    # Evaluation setup reminiscent of https://arxiv.org/pdf/2207.07411.pdf,
+    # wherein the binning depends on the confidence and we go from multiclass to
+    # binary by taking the argmax. For more details, see
+    # https://github.com/google/uncertainty-baselines/blob/main/baselines/jft/deterministic.py#L610.
+    oracle_auc_with_default_confidence = rm.metrics.OracleCollaborativeAUC(
+        oracle_fraction=0.5,
+        take_argmax=True,
+        default_binning_score_to_confidence=True)
+    oracle_auc_without_default_confidence = rm.metrics.OracleCollaborativeAUC(
+        oracle_fraction=0.5,
+        take_argmax=True,
+        default_binning_score_to_confidence=False)
+
+    # The two metrics use two different binning scores.
+    # Their results disagree with each other.
+    oracle_auc_with_default_confidence.add_batch(y_pred, label=y_true)
+    oracle_auc_without_default_confidence.add_batch(
+        y_pred, label=y_true, custom_binning_score=None)
+
+    self.assertNotAllClose(oracle_auc_with_default_confidence.result(),
+                           oracle_auc_without_default_confidence.result())
+
+    # This time, we pass the confidence to compute the binning. The two metrics
+    # agree with each other.
+    oracle_auc_without_default_confidence.reset_states()
+    oracle_auc_without_default_confidence.add_batch(
+        y_pred, label=y_true, custom_binning_score=confidence)
+
+    self.assertAllClose(oracle_auc_with_default_confidence.result(),
+                        oracle_auc_without_default_confidence.result())
+
 
 class CalibrationAUCTest(tf.test.TestCase, parameterized.TestCase):
 
