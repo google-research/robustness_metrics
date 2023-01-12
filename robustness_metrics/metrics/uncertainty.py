@@ -877,13 +877,14 @@ class OracleCollaborativeAccuracy(metrics_base.KerasMetric):
       fraction=0.01,
       num_bins=100,
       dtype=None,
-      take_argmax=False):
+      take_argmax=False,
+      key_name="collaborative_accuracy"):
     metric = _KerasOracleCollaborativeAccuracyMetric(
         fraction=fraction, num_bins=num_bins, dtype=dtype)
     super().__init__(
         dataset_info,
         metric,
-        "collaborative_accuracy",
+        key_name,
         take_argmax=take_argmax,
         one_hot=False,
         use_dataset_labelset=use_dataset_labelset)
@@ -920,7 +921,7 @@ class OracleCollaborativeAccuracy(metrics_base.KerasMetric):
           label, predictions, custom_binning_score=custom_binning_score)
 
   def add_predictions(self, model_predictions: types.ModelPredictions,
-                      **metadata) -> None:
+                      metadata) -> None:
     try:
       element_id = int(metadata["element_id"])
       if element_id in self._ids_seen:
@@ -1018,7 +1019,8 @@ class OracleCollaborativeAUC(OracleCollaborativeAccuracy):
                summation_method: str = "interpolation",
                dtype: Optional[tf.DType] = None,
                default_binning_score_to_confidence: bool = False,
-               take_argmax: bool = False):
+               take_argmax: bool = False,
+               key_name: str = "collaborative_auc"):
     """Constructs an expected oracle-collaborative AUC Keras metric.
 
     Args:
@@ -1049,13 +1051,16 @@ class OracleCollaborativeAUC(OracleCollaborativeAccuracy):
         https://github.com/google/uncertainty-baselines/blob/main/baselines/jft/deterministic.py#L610.
       take_argmax: If set, the argmax of the predictions will be sent to the
         metric rather than the predictions themselves.
+      key_name: The key under which the result from the metric will be reported.
+        In code, the reult will be `{key: wrapped_metric.result()}`.
     """
     super().__init__(
         dataset_info=dataset_info,
         use_dataset_labelset=use_dataset_labelset,
         fraction=oracle_fraction,
         num_bins=num_bins,
-        take_argmax=take_argmax)
+        take_argmax=take_argmax,
+        key_name=key_name)
 
     metric = _KerasOracleCollaborativeAUCMetric(
         oracle_fraction=oracle_fraction,
@@ -1066,7 +1071,6 @@ class OracleCollaborativeAUC(OracleCollaborativeAccuracy):
         summation_method=summation_method,
         dtype=dtype)
     self._metric = metric
-    self._key_name = "collaborative_auc"
     self._default_binning_score_to_confidence = (
         default_binning_score_to_confidence)
 

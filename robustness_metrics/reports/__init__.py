@@ -19,6 +19,7 @@ from robustness_metrics.reports import base
 from robustness_metrics.reports import cifar_variants
 from robustness_metrics.reports import imagenet_variants
 from robustness_metrics.reports import ood_detection
+from robustness_metrics.reports import plex
 from robustness_metrics.reports import synthetic_variants
 
 
