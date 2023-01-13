@@ -729,7 +729,7 @@ class SemiParametricCalibrationErrorTest(tf.test.TestCase):
     probs = np.random.rand(n)
     calibration_error = 0.7 * probs ** 2 + 0.3 * probs
     # Simulate outcomes according to this model.
-    labels = (np.random.rand(n) <= calibration_error).astype(np.float)
+    labels = (np.random.rand(n) <= calibration_error).astype(float)
     metric = rm.metrics.get("semiparametric_ce(smoothing='spline')",
                             _get_info(None))
     metric.add_batch(probs, label=labels)
@@ -743,7 +743,7 @@ class SemiParametricCalibrationErrorTest(tf.test.TestCase):
     probs = np.random.rand(n)
     calibration_error = 0.7 * probs ** 2 + 0.3 * probs
     # Simulate outcomes according to this model.
-    labels = (np.random.rand(n) <= calibration_error).astype(np.float)
+    labels = (np.random.rand(n) <= calibration_error).astype(float)
     metric = rm.metrics.get("semiparametric_ce(smoothing='spline')",
                             _get_info(None))
     metric.add_batch(probs, label=labels)
@@ -756,7 +756,7 @@ class SemiParametricCalibrationErrorTest(tf.test.TestCase):
     probs = np.random.rand(n)
     calibration_error = 0.7 * probs ** 2 + 0.3 * probs
     # Simulate outcomes according to this model.
-    labels = (np.random.rand(n) <= calibration_error).astype(np.float)
+    labels = (np.random.rand(n) <= calibration_error).astype(float)
     metric = rm.metrics.get("semiparametric_ce_ci(smoothing='spline')",
                             _get_info(None))
     metric.add_batch(probs, label=labels)

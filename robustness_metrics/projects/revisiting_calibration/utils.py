@@ -45,7 +45,7 @@ def assert_no_duplicates_in_condition(df: pd.DataFrame, group_by: List[str]):
     return
   # There are duplicates:
   vals = count.max(axis="columns").idxmax()
-  mask = np.ones(df.shape[0], np.bool)
+  mask = np.ones(df.shape[0], bool)
   for col, val in zip(group_by, vals):
     mask &= df[col] == val
   msg = [f"{col}: {val}" for col, val in zip(group_by, vals)]

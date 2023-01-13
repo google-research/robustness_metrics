@@ -2351,7 +2351,7 @@ class SemiParametricCalibrationError(metrics_base.FullBatchMetric):
     weights = self.weight_function(probs)
     weights /= np.mean(weights)
 
-    best_error = np.float("inf")
+    best_error = float("inf")
     best_hyperparam = None
     for hyperparam in hyperparam_range:
       accs = self._calculate_cross_fit_calibration_function(
