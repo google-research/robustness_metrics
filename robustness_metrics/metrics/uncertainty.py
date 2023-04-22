@@ -113,6 +113,7 @@ class _KerasECEMetric(tf.keras.metrics.Metric):
                    labels,
                    probabilities,
                    custom_binning_score=None,
+                   sample_weight=None,
                    **kwargs):
     """Updates this metric.
 
@@ -128,6 +129,9 @@ class _KerasECEMetric(tf.keras.metrics.Metric):
         of probabilities used for binning predictions. If not set, the default
         is to bin by predicted probability. The elements of custom_binning_score
         are expected to all be in [0, 1].
+      sample_weight: Optional weighting of each example. Defaults to 1. Can
+        be a `Tensor` whose rank is either 0, or the same rank as `labels`,
+        and must be broadcastable to `labels`.
       **kwargs: Other potential keywords, which will be ignored by this method.
     """
     del kwargs  # unused
@@ -143,6 +147,15 @@ class _KerasECEMetric(tf.keras.metrics.Metric):
     if tf.rank(probabilities) != 2 or (tf.shape(probabilities)[0] !=
                                        tf.shape(labels)[0]):
       probabilities = tf.reshape(probabilities, [tf.shape(labels)[0], -1])
+
+    # use sample weight if provided
+    if sample_weight is not None:
+      if tf.rank(sample_weight) != 1:
+        sample_weight = tf.convert_to_tensor(sample_weight)
+        sample_weight = tf.reshape(sample_weight, [-1])
+      probabilities = tf.boolean_mask(probabilities, sample_weight)
+      labels = tf.boolean_mask(labels, sample_weight)
+
     # Extend any probabilities of shape [N, 1] to shape [N, 2].
     # NOTE: XLA does not allow for different shapes in the branches of a
     # conditional statement. Therefore, explicit indexing is used.
@@ -774,9 +787,11 @@ class _KerasCalibrationAUCMetric(tf.keras.metrics.AUC):
     super().__init__(curve=curve, multi_label=False, **kwargs)
     self.correct_pred_as_pos_label = correct_pred_as_pos_label
 
-  def update_state(self, y_true: Sequence[float], y_pred: Sequence[float],
-                   confidence: Sequence[float], **kwargs: Mapping[str,
-                                                                  Any]) -> None:
+  def update_state(self, y_true: Sequence[float],
+                   y_pred: Sequence[float],
+                   confidence: Sequence[float],
+                   sample_weight: Optional[Sequence[float]] = None,
+                   **kwargs: Mapping[str, Any]) -> None:
     """Updates confidence versus accuracy AUC statistics.
 
     Args:
@@ -787,12 +802,33 @@ class _KerasCalibrationAUCMetric(tf.keras.metrics.AUC):
         `tf.math.reduce_max(logits)`. Shape (batch_size, ).
       confidence: The confidence score where higher value indicates lower
         uncertainty. Values should be within [0, 1].
+      sample_weight: Optional weighting of each example.
+        Defaults to 1. Shape(batch_size, ).
       **kwargs: Additional keyword arguments.
     """
     # Creates binary 'label' of prediction correctness, shape (batch_size, ).
     scores = tf.convert_to_tensor(confidence, dtype=self.dtype)
+    y_true = tf.convert_to_tensor(y_true)
+    y_pred = tf.convert_to_tensor(y_pred)
+
+    assert tf.rank(y_pred) == tf.rank(y_pred) == tf.rank(confidence)
+
+    # Flatten all to [N, ].
+    if tf.rank(y_true) != 1:
+      y_true = tf.reshape(y_true, [-1])
+      scores = tf.reshape(scores, [-1])
+      y_pred = tf.reshape(y_pred, [-1])
+
     labels = _compute_correct_predictions(
         y_true, y_pred, dtype=self.dtype)
+
+    # use sample weight if provided
+    if sample_weight is not None:
+      sample_weight = tf.convert_to_tensor(sample_weight)
+      if tf.rank(sample_weight) != 1:
+        sample_weight = tf.reshape(sample_weight, [-1])
+      scores = tf.boolean_mask(scores, sample_weight)
+      labels = tf.boolean_mask(labels, sample_weight)
 
     if not self.correct_pred_as_pos_label:
       # Use incorrect prediction as the positive class.
