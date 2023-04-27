@@ -774,7 +774,7 @@ class _KerasCalibrationAUCMetric(tf.keras.metrics.AUC):
     super().__init__(curve=curve, multi_label=False, **kwargs)
     self.correct_pred_as_pos_label = correct_pred_as_pos_label
 
-  def update_state(self, y_true: Sequence[float], y_pred: Sequence[float],
+  def update_state(self, y_true: Sequence[float], y_pred: Sequence[float],  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
                    confidence: Sequence[float], **kwargs: Mapping[str,
                                                                   Any]) -> None:
     """Updates confidence versus accuracy AUC statistics.
@@ -1188,7 +1188,7 @@ class CalibrationAUC(metrics_base.KerasMetric):
       self._metric.update_state(
           label, predictions, confidence=confidence)
 
-  def add_predictions(self, model_predictions: types.ModelPredictions,
+  def add_predictions(self, model_predictions: types.ModelPredictions,  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
                       **metadata) -> None:
     try:
       element_id = int(metadata["element_id"])

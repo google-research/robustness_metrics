@@ -149,7 +149,7 @@ class Cifar10CDataset(TFDSDataset):
     }
     return features
 
-  def load(self, preprocess_fn: Optional[PreprocessFn]) -> tf.data.Dataset:
+  def load(self, preprocess_fn: Optional[PreprocessFn]) -> tf.data.Dataset:  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
     if not preprocess_fn:
       preprocess_fn = self._default_preprocess_fn
 
