@@ -192,7 +192,7 @@ def plot_reliability_diagrams(
       df_main, gce_prefix, [family], rescaling_methods=[rescaling_method],
       dataset_name=dataset_name)
   df_models = df_plot.drop_duplicates(subset=["ModelName"])
-  df_models = df_models.sort_values(by="model_size")
+  df_models = df_models.sort_values(by="model_size")  # pytype: disable=attribute-error  # typed-pandas
   model_names = df_models.ModelName.to_list()
 
   # Set up figure:
