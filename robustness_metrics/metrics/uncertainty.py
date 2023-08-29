@@ -1519,11 +1519,11 @@ class _GeneralCalibrationErrorMetric:
 
     if self.binning_scheme == "adaptive" and self.num_bins is not None:
       bin_upper_bounds = _get_adaptive_bins(probs_slice, self.num_bins)
-    elif self.binning_scheme == "adaptive" and self.num_bins is None:
+    elif self.binning_scheme == "adaptive":
       bin_upper_bounds = self._get_mon_sweep_bins(probs_slice, labels)
     elif self.binning_scheme == "even" and self.num_bins is None:
       bin_upper_bounds = self._get_mon_sweep_bins(probs_slice, labels)
-    elif self.binning_scheme == "even" and self.num_bins is not None:
+    elif self.binning_scheme == "even":
       bin_upper_bounds = np.histogram_bin_edges([],
                                                 bins=self.num_bins,
                                                 range=(0.0, 1.0))[1:]
@@ -1616,24 +1616,18 @@ class _GeneralCalibrationErrorMetric:
         if not self.max_prob:
           probs_slice = probs[:, j]
           labels = labels_matrix[:, j]
-          labels = labels[probs_slice > self.threshold]
-          probs_slice = probs_slice[probs_slice > self.threshold]
-          bin_upper_bounds = self._get_upper_bounds(probs_slice, labels)
-
-          calibration_error = self._get_calibration_error(
-              probs_slice, labels, bin_upper_bounds)
-          class_calibration_error_list.append(calibration_error / num_classes)
         else:
           # In the case where we use all datapoints,
           # max label has to be applied before class splitting.
           labels = labels_matrix[np.argmax(probs, axis=1) == j][:, j]
           probs_slice = probs[np.argmax(probs, axis=1) == j][:, j]
-          labels = labels[probs_slice > self.threshold]
-          probs_slice = probs_slice[probs_slice > self.threshold]
-          bin_upper_bounds = self._get_upper_bounds(probs_slice, labels)
-          calibration_error = self._get_calibration_error(
-              probs_slice, labels, bin_upper_bounds)
-          class_calibration_error_list.append(calibration_error / num_classes)
+        labels = labels[probs_slice > self.threshold]
+        probs_slice = probs_slice[probs_slice > self.threshold]
+        bin_upper_bounds = self._get_upper_bounds(probs_slice, labels)
+
+        calibration_error = self._get_calibration_error(
+            probs_slice, labels, bin_upper_bounds)
+        class_calibration_error_list.append(calibration_error / num_classes)
       calibration_error = np.sum(class_calibration_error_list)
 
     if self.norm == "l2":
