@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2023 The Robustness Metrics Authors.
+# Copyright 2024 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -203,10 +203,14 @@ class AveragePairwiseDiversity(metrics_base.Metric):
 
     if self._normalize_disagreement:
       ensemble_predictions = tf.reduce_mean(model_predictions, axis=0)
+      if self._accuracy is None:
+        raise ValueError('AveragePairwiseDiversity._accuracy is None')
       self._accuracy.add_batch(ensemble_predictions, **metadata)
 
   def reset_states(self):
     if self._normalize_disagreement:
+      if self._accuracy is None:
+        raise ValueError('AveragePairwiseDiversity._accuracy is None')
       self._accuracy.reset_states()
     self._dataset_size.assign(0)
     self._disagreement.assign(0.)
@@ -231,6 +235,8 @@ class AveragePairwiseDiversity(metrics_base.Metric):
     dataset_size = tf.cast(self._dataset_size, self._disagreement.dtype)
     avg_disagreement = self._disagreement / dataset_size
     if self._normalize_disagreement:
+      if self._accuracy is None:
+        raise ValueError('AveragePairwiseDiversity._accuracy is None')
       classification_error = 1. - self._accuracy.result()['accuracy']
       avg_disagreement /= classification_error + tf.keras.backend.epsilon()
 

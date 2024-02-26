@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2023 The Robustness Metrics Authors.
+# Copyright 2024 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -254,6 +254,8 @@ class KerasMetric(Metric):
       model_predictions /= tf.math.reduce_sum(
           model_predictions, axis=-1, keepdims=True)
       if tf.rank(label) == 1:
+        if self._appearing_classes is None:
+          raise ValueError("KerasMetric._appearing_classes is None")
         label = tf.convert_to_tensor([
             self._appearing_classes.index(x) for x in label])
       else:
