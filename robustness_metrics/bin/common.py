@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2023 The Robustness Metrics Authors.
+# Copyright 2024 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -108,7 +108,7 @@ def default_distribution_strategy():
 
 
 def _slice_dictionary(tensor_dict, i: int):
-  return jax.tree_map(lambda x: x[i], tensor_dict)
+  return jax.tree.map(lambda x: x[i], tensor_dict)
 
 
 def materialize(strategy: tf.distribute.Strategy, value_or_nested_dict):
@@ -202,7 +202,7 @@ def compute_predictions_jax(
   gather = jax.pmap(_gather, axis_name="i")
 
   def reshape_for_pmap(array):
-    return jax.tree_map(
+    return jax.tree.map(
         lambda x: x.reshape((jax.local_device_count(), -1) + x.shape[1:]),
         array)
 
@@ -210,12 +210,12 @@ def compute_predictions_jax(
     probabilities = model(features)
     return_vals = (probabilities, features["mask"])
     return_vals_reshaped = reshape_for_pmap(return_vals)
-    return jax.tree_map(lambda x: x[0], gather(return_vals_reshaped))
+    return jax.tree.map(lambda x: x[0], gather(return_vals_reshaped))
 
   def gather_metadata(features):
     return_vals = (features["metadata"],)
     return_vals_reshaped = reshape_for_pmap(return_vals)
-    return jax.tree_map(lambda x: x[0], gather(return_vals_reshaped))
+    return jax.tree.map(lambda x: x[0], gather(return_vals_reshaped))
 
   if dataset.cardinality() < 0:
     raise ValueError(
@@ -274,9 +274,9 @@ def compute_predictions_jax(
     features["mask"] = features["mask"].astype(np.int32)
 
     flatten = lambda array: array.reshape((-1,) + array.shape[2:])
-    predictions, masks = jax.tree_map(flatten, infer(features))
+    predictions, masks = jax.tree.map(flatten, infer(features))
     with jax.experimental.enable_x64():  # pytype: disable=module-attr
-      metadatas = jax.tree_map(flatten, gather_metadata(features))[0]
+      metadatas = jax.tree.map(flatten, gather_metadata(features))[0]
 
     time_end = time.time()
     time_delta_per_example = (time_end - time_start) / predictions.shape[0]
@@ -289,7 +289,7 @@ def compute_predictions_jax(
           with jax.experimental.enable_x64():  # pytype: disable=module-attr
             metadata_i = _slice_dictionary(metadatas, i)
             is_leaf_fn = lambda x: isinstance(x, dict) and "__packed" in x
-            metadata_i_unpadded = jax.tree_map(
+            metadata_i_unpadded = jax.tree.map(
                 unpad_strings, metadata_i, is_leaf=is_leaf_fn)
           _check_element_id_is_an_int64(metadata_i_unpadded)
           yield predictions_i, metadata_i_unpadded
