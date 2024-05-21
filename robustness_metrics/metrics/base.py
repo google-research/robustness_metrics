@@ -254,6 +254,8 @@ class KerasMetric(Metric):
       model_predictions /= tf.math.reduce_sum(
           model_predictions, axis=-1, keepdims=True)
       if tf.rank(label) == 1:
+        if self._appearing_classes is None:
+          raise ValueError("_appearing_classes not initialized.")
         label = tf.convert_to_tensor([
             self._appearing_classes.index(x) for x in label])
       else:

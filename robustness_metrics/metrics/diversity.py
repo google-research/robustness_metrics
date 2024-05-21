@@ -202,11 +202,13 @@ class AveragePairwiseDiversity(metrics_base.Metric):
     self._bregman_kl_variance.assign_add(batch_bregman_kl_variance)
 
     if self._normalize_disagreement:
+      if self._accuracy is None:
+        raise ValueError('Accuracy not initialized.')
       ensemble_predictions = tf.reduce_mean(model_predictions, axis=0)
       self._accuracy.add_batch(ensemble_predictions, **metadata)
 
   def reset_states(self):
-    if self._normalize_disagreement:
+    if self._normalize_disagreement and self._accuracy is not None:
       self._accuracy.reset_states()
     self._dataset_size.assign(0)
     self._disagreement.assign(0.)
@@ -230,7 +232,7 @@ class AveragePairwiseDiversity(metrics_base.Metric):
 
     dataset_size = tf.cast(self._dataset_size, self._disagreement.dtype)
     avg_disagreement = self._disagreement / dataset_size
-    if self._normalize_disagreement:
+    if self._normalize_disagreement and self._accuracy is not None:
       classification_error = 1. - self._accuracy.result()['accuracy']
       avg_disagreement /= classification_error + tf.keras.backend.epsilon()
 

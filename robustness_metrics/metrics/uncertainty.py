@@ -1830,9 +1830,12 @@ class GeneralCalibrationError(metrics_base.FullBatchMetric):
     )
     m.update_state(np.asarray(self._eval_labels),
                    np.asarray(self._eval_predictions))
+    result = m.result()
+    if result is None:
+      raise ValueError("No result found for _GeneralCalibrationErrorMetric")
     if self._recalibration_method == "temperature_scaling":
-      return {"gce": m.result(), "beta": beta}
-    return {"gce": m.result()}
+      return {"gce": result, "beta": beta}
+    return {"gce": result}
 
   def shuffle_and_split_data(self) -> None:
     n_labels = len(self._labels)
