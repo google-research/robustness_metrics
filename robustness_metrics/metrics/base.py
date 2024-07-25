@@ -352,7 +352,7 @@ class AggregatedAccuracy(Metric):
       prediction = np.array(prediction)
       if self._classes_to_ignore:
         for x in self._classes_to_ignore:
-          prediction[x] = -np.infty
+          prediction[x] = -np.inf
 
       if is_multi_label:
         correct = np.where(metadata["labels_multi_hot"])[0]
