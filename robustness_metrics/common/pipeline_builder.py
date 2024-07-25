@@ -38,13 +38,12 @@ def keep_only_tpu_types(data):
   for key in list(data.keys()):
     if isinstance(data[key], dict):
       data[key] = keep_only_tpu_types(data[key])
-    else:
-      if data[key].dtype not in TPU_SUPPORTED_DTYPES:
-        tf.logging.warning(
-            "Removing key '{}' from data dict because its dtype {} is not in "
-            " the supported dtypes: {}".format(key, data[key].dtype,
-                                               TPU_SUPPORTED_DTYPES))
-        data = _get_delete_field(key)(data)
+    elif data[key].dtype not in TPU_SUPPORTED_DTYPES:
+      tf.logging.warning(
+          "Removing key '{}' from data dict because its dtype {} is not in "
+          " the supported dtypes: {}".format(key, data[key].dtype,
+                                             TPU_SUPPORTED_DTYPES))
+      data = _get_delete_field(key)(data)
   return data
 
 
