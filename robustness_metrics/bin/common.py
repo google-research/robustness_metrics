@@ -168,9 +168,9 @@ def compute_predictions(
     predictions = materialize(strategy,
                               strategy.run(model, args=(features_model,)))
     time_end = time.time()
-    time_delta_per_example = (time_end - time_start) / predictions.shape[0]
+    time_delta_per_example = (time_end - time_start) / predictions.shape[0]  # pytype: disable=attribute-error
     metadatas = materialize(strategy, features["metadata"])
-    for i in range(predictions.shape[0]):
+    for i in range(predictions.shape[0]):  # pytype: disable=attribute-error
       model_predictions = types.ModelPredictions(
           predictions=[predictions[i]],
           time_in_s=time_delta_per_example)
