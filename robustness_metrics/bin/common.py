@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The Robustness Metrics Authors.
+# Copyright 2025 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -275,7 +275,7 @@ def compute_predictions_jax(
 
     flatten = lambda array: array.reshape((-1,) + array.shape[2:])
     predictions, masks = jax.tree.map(flatten, infer(features))
-    with jax.experimental.enable_x64():  # pytype: disable=module-attr
+    with jax.enable_x64():  # pytype: disable=module-attr
       metadatas = jax.tree.map(flatten, gather_metadata(features))[0]
 
     time_end = time.time()
@@ -286,7 +286,7 @@ def compute_predictions_jax(
         if masks[i]:
           predictions_i = types.ModelPredictions(
               predictions=[predictions[i]], time_in_s=time_delta_per_example)
-          with jax.experimental.enable_x64():  # pytype: disable=module-attr
+          with jax.enable_x64():  # pytype: disable=module-attr
             metadata_i = _slice_dictionary(metadatas, i)
             is_leaf_fn = lambda x: isinstance(x, dict) and "__packed" in x
             metadata_i_unpadded = jax.tree.map(
