@@ -102,7 +102,7 @@ def plot(df_main: pd.DataFrame,
         if rescaling_method == "none":
           ax.scatter([0.2257, 0.2231], [0.0628, 0.0548],
                      s=size, c=color, marker=marker, alpha=0.7, label="guo")
-        if rescaling_method == "temperature_scaling":
+        elif rescaling_method == "temperature_scaling":
           ax.scatter([0.2257, 0.2231], [0.0199, 0.0186],
                      s=size, c=color, marker=marker, alpha=0.7, label="guo")
 

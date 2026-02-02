@@ -336,9 +336,9 @@ class ImagenetVariantsEnsembleGceSweepReport(ImagenetVariantsGceSweepReport):
       dataset_name, _, dataset_kwargs = registry.parse_name_and_kwargs(
           dataset_spec)
 
-      if dataset_name == "imagenet_v2":
-        if dataset_kwargs["variant"] != "MATCHED_FREQUENCY":
-          return
+      if (dataset_name == "imagenet_v2"
+          and dataset_kwargs["variant"] != "MATCHED_FREQUENCY"):
+        return
 
       for metric_key, metric_value in metric_results.items():
         key = self._get_full_metric_key(dataset_name, metric_name, metric_key)
