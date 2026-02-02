@@ -185,7 +185,7 @@ def compute_predictions_jax(
 
   Note that this also works in multi-host configurations. You have to make
   sure that this function gets called on all hosts. The results will be yielded
-  only to the host with a jax.host_id() equal to 0.
+  only to the host with a jax.process_index() equal to 0.
 
   Args:
     model: A function that takes tensor-valued features and returns a vector of
@@ -223,7 +223,7 @@ def compute_predictions_jax(
   total_batches = math.ceil(dataset.cardinality() / batch_size)
   lcm = lambda x, y: (x * y) // math.gcd(x, y)
   # We want each shard (host) to get an equal number of batches.
-  total_batches_padded = lcm(jax.host_count(), total_batches)
+  total_batches_padded = lcm(jax.process_count(), total_batches)
   logging.info("Total batches %d, rounded up to %d",
                total_batches, total_batches_padded)
 
@@ -266,7 +266,7 @@ def compute_predictions_jax(
   ).batch(batch_size)
 
   # The shard for the current host.
-  dataset_shard = dataset.shard(jax.host_count(), jax.host_id())
+  dataset_shard = dataset.shard(jax.process_count(), jax.process_index())
   logging.info("Batches per host: %d", dataset_shard.cardinality())
   for features in dataset_shard.as_numpy_iterator():
     time_start = time.time()
@@ -281,7 +281,7 @@ def compute_predictions_jax(
     time_end = time.time()
     time_delta_per_example = (time_end - time_start) / predictions.shape[0]
     predictions = np.asarray(predictions)  # Materialize.
-    if jax.host_id() == 0:
+    if jax.process_index() == 0:
       for i in range(predictions.shape[0]):
         if masks[i]:
           predictions_i = types.ModelPredictions(
