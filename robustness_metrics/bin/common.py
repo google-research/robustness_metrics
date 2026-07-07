@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2025 The Robustness Metrics Authors.
+# Copyright 2026 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ def load_module_from_path(model_path: str) -> pytypes.ModuleType:
     The module loaded from the given path.
   """
   module_spec = importlib.util.spec_from_file_location("model", model_path)
-  module = importlib.util.module_from_spec(module_spec)
+  module = importlib.util.module_from_spec(module_spec)  # pyrefly: ignore[bad-argument-type]
   module_spec.loader.exec_module(module)  # pytype: disable=attribute-error
   return module
 

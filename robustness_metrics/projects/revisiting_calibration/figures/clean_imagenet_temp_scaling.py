@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2025 The Robustness Metrics Authors.
+# Copyright 2026 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -102,7 +102,7 @@ def plot(df_main: pd.DataFrame,
       ax.set_ylabel("ECE")
 
   # Model family legend:
-  handles, labels = plotting.get_model_family_legend(big_ax, family_order)
+  handles, labels = plotting.get_model_family_legend(big_ax, family_order)  # pyrefly: ignore[unbound-name]
   legend = big_ax.legend(
       handles=handles, labels=labels, loc="upper right", frameon=True,
       labelspacing=0.3, handletextpad=0.1, borderpad=0.3, fontsize=4)

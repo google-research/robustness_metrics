@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2025 The Robustness Metrics Authors.
+# Copyright 2026 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ class EnsembleCrossEntropy(metrics_base.Metric):
         model_predictions.predictions,
         labels=metadata['labels'])
 
-  def add_batch(self, model_predictions, *, labels=None) -> None:
+  def add_batch(self, model_predictions, *, labels=None) -> None:  # pyrefly: ignore[bad-override]
     """Adds a batch of predictions for a batch of examples.
 
     Args:
@@ -124,7 +124,7 @@ class GibbsCrossEntropy(metrics_base.Metric):
         model_predictions.predictions,
         labels=metadata['labels'])
 
-  def add_batch(self, model_predictions, *, labels=None) -> None:
+  def add_batch(self, model_predictions, *, labels=None) -> None:  # pyrefly: ignore[bad-override]
     """Adds a batch of predictions for a batch of examples.
 
     Args:

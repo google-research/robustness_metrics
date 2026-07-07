@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2025 The Robustness Metrics Authors.
+# Copyright 2026 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -257,7 +257,7 @@ class KerasMetric(Metric):
         if self._appearing_classes is None:
           raise ValueError("_appearing_classes not initialized.")
         label = tf.convert_to_tensor([
-            self._appearing_classes.index(x) for x in label])
+            self._appearing_classes.index(x) for x in label])  # pyrefly: ignore[not-iterable]
       else:
         label = tf.gather(label, self._appearing_classes, axis=-1)
     self._add_prediction(

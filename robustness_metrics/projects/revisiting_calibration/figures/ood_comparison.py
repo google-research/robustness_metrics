@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2025 The Robustness Metrics Authors.
+# Copyright 2026 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -163,7 +163,7 @@ def plot(df_main: pd.DataFrame,
       ax.set_xticklabels("")
 
   if add_metric_description:
-    plotting.add_metric_description_title(df_plot, g.fig, y=1.05)
+    plotting.add_metric_description_title(df_plot, g.fig, y=1.05)  # pyrefly: ignore[bad-argument-type]
 
   plotting.apply_to_fig_text(g.fig, display.prettify)
   g.fig.tight_layout(pad=0)
@@ -191,7 +191,7 @@ def plot(df_main: pd.DataFrame,
           title="Model family", bbox_to_anchor=(1.00, 0.53), frameon=True,
           bbox_transform=g.fig.transFigure, ncol=1,
           handletextpad=0.1)
-    legend.get_frame().set_linewidth(mpl.rcParams["axes.linewidth"])
+    legend.get_frame().set_linewidth(mpl.rcParams["axes.linewidth"])  # pyrefly: ignore[unbound-name]
     legend.get_frame().set_edgecolor("lightgray")
     plotting.apply_to_fig_text(g.fig, display.prettify)
   return g

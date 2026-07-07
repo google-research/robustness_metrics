@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2025 The Robustness Metrics Authors.
+# Copyright 2026 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -132,7 +132,7 @@ def plot(df_main: pd.DataFrame,
   fig.tight_layout(pad=0.5)
 
   # Model family legend:
-  handles, labels = plotting.get_model_family_legend(big_ax, family_order)
+  handles, labels = plotting.get_model_family_legend(big_ax, family_order)  # pyrefly: ignore[unbound-name]
 
   plotting.apply_to_fig_text(fig, display.prettify)
   plotting.apply_to_fig_text(fig, lambda x: x.replace("EfficientNet", "EffNet"))

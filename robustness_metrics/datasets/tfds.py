@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2025 The Robustness Metrics Authors.
+# Copyright 2026 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ class TFDSDataset(base.Dataset):
     """Hash the element id to compute a unique id."""
     assert_msg = "`element_id` should not be present in the feature set."
     assert "element_id" not in features, assert_msg
-    fingerprint_feature = features[self._fingerprint_key]
+    fingerprint_feature = features[self._fingerprint_key]  # pyrefly: ignore[bad-index]
     return ops.fingerprint_int64(fingerprint_feature)
 
   def create_metadata(self, features):

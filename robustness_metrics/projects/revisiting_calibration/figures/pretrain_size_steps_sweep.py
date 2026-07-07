@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2025 The Robustness Metrics Authors.
+# Copyright 2026 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -225,7 +225,7 @@ def _get_data(
   df_cond1["varying_key"] = "steps"
   df_cond2 = df_plot[df_plot["steps"] == 1120000].copy()
   df_cond2["varying_key"] = "size"
-  return pd.concat([df_cond1, df_cond2])
+  return pd.concat([df_cond1, df_cond2])  # pyrefly: ignore[bad-return]
 
 
 def subplot_fn(data, x, y, **kwargs):

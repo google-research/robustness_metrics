@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2025 The Robustness Metrics Authors.
+# Copyright 2026 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -800,7 +800,7 @@ class _KerasCalibrationAUCMetric(tf.keras.metrics.AUC):
       # This results in label imbalance in the calibration AUC computation, and
       # can lead to overly optimistic results.
       scores = 1. - scores
-      labels = 1. - labels
+      labels = 1. - labels  # pyrefly: ignore[unsupported-operation]
 
     # Updates confidence v.s. accuracy AUC statistic.
     super().update_state(y_true=labels, y_pred=scores, **kwargs)
@@ -981,7 +981,7 @@ class OracleCollaborativeAccuracy(metrics_base.KerasMetric):
       model_predictions /= tf.math.reduce_sum(
           model_predictions, axis=-1, keepdims=True)
       label = tf.convert_to_tensor(
-          [self._appearing_classes.index(x) for x in label])
+          [self._appearing_classes.index(x) for x in label])  # pyrefly: ignore[missing-attribute, not-iterable]
     self._add_prediction(
         predictions=model_predictions,
         label=label,
@@ -1157,7 +1157,7 @@ class CalibrationAUC(metrics_base.KerasMetric):
         curve=curve,
         multi_label=multi_label,
         correct_pred_as_pos_label=correct_pred_as_pos_label,
-        dtype=dtype,
+        dtype=dtype,  # pyrefly: ignore[bad-argument-type]
         **kwargs)
 
     super().__init__(
@@ -1247,7 +1247,7 @@ class CalibrationAUC(metrics_base.KerasMetric):
       model_predictions /= tf.math.reduce_sum(
           model_predictions, axis=-1, keepdims=True)
       label = tf.convert_to_tensor(
-          [self._appearing_classes.index(x) for x in label])
+          [self._appearing_classes.index(x) for x in label])  # pyrefly: ignore[missing-attribute, not-iterable]
     self._add_prediction(
         predictions=model_predictions,
         label=label,
@@ -1302,7 +1302,7 @@ class Brier(metrics_base.KerasMetric):
     super()._add_prediction(predictions, label, average_predictions)
 
   def result(self):
-    return {"brier": self._num_classes * float(self._metric.result())}
+    return {"brier": self._num_classes * float(self._metric.result())}  # pyrefly: ignore[unsupported-operation]
 
 
 def _get_adaptive_bins(predictions, num_bins):
@@ -1814,7 +1814,7 @@ class GeneralCalibrationError(metrics_base.FullBatchMetric):
     elif self._recalibration_method == "isotonic_regression":
       ir = IsotonicRegression(pickle_path=self._pickle_path)
       ir.fit(self._fit_predictions, self._fit_labels)
-      self._eval_predictions = ir.scale(self._eval_predictions)
+      self._eval_predictions = ir.scale(self._eval_predictions)  # pyrefly: ignore[bad-argument-type, bad-assignment]
     elif self._recalibration_method is not None:
       raise ValueError("You added an unknown recalibration method: "
                        f"{self._recalibration_method}. Supported options: "
@@ -1834,7 +1834,7 @@ class GeneralCalibrationError(metrics_base.FullBatchMetric):
     if result is None:
       raise ValueError("No result found for _GeneralCalibrationErrorMetric")
     if self._recalibration_method == "temperature_scaling":
-      return {"gce": result, "beta": beta}
+      return {"gce": result, "beta": beta}  # pyrefly: ignore[unbound-name]
     return {"gce": result}
 
   def shuffle_and_split_data(self) -> None:
@@ -1845,10 +1845,10 @@ class GeneralCalibrationError(metrics_base.FullBatchMetric):
     if number_of_fit_examples == n_labels:
       # No shuffling, no data split.
       # Fit and evaluate on the (same) complete data set.
-      self._eval_predictions = predictions
-      self._eval_labels = labels
-      self._fit_predictions = predictions
-      self._fit_labels = labels
+      self._eval_predictions = predictions  # pyrefly: ignore[bad-assignment]
+      self._eval_labels = labels  # pyrefly: ignore[bad-assignment]
+      self._fit_predictions = predictions  # pyrefly: ignore[bad-assignment]
+      self._fit_labels = labels  # pyrefly: ignore[bad-assignment]
     else:
       # Shuffle ordered pair (labels, predictions) by using the permutation
       # method of the random number generator.
@@ -1857,10 +1857,10 @@ class GeneralCalibrationError(metrics_base.FullBatchMetric):
       # perm = rng.permutation(len(lbls))
       perm = np.random.RandomState(seed=self._seed).permutation(n_labels)
       labels, predictions = labels[perm], predictions[perm]
-      self._eval_predictions = predictions[number_of_fit_examples:]
-      self._eval_labels = labels[number_of_fit_examples:]
-      self._fit_predictions = predictions[:number_of_fit_examples]
-      self._fit_labels = labels[:number_of_fit_examples]
+      self._eval_predictions = predictions[number_of_fit_examples:]  # pyrefly: ignore[bad-assignment]
+      self._eval_labels = labels[number_of_fit_examples:]  # pyrefly: ignore[bad-assignment]
+      self._fit_predictions = predictions[:number_of_fit_examples]  # pyrefly: ignore[bad-assignment]
+      self._fit_labels = labels[:number_of_fit_examples]  # pyrefly: ignore[bad-assignment]
 
 
 # TODO(mjlm): Consider moving non-metric code to separate file:
@@ -1973,23 +1973,23 @@ class IsotonicRegression(metrics_base.FullBatchMetric):
       all_predictions: 2D list with model probabilities as [instance][class]
       all_labels: 1D list of class labels as [instance]
     """
-    all_predictions = np.asarray(all_predictions)
-    all_labels = np.asarray(all_labels)
+    all_predictions = np.asarray(all_predictions)  # pyrefly: ignore[bad-assignment]
+    all_labels = np.asarray(all_labels)  # pyrefly: ignore[bad-assignment]
 
-    if all_predictions.ndim == 1:
+    if all_predictions.ndim == 1:  # pyrefly: ignore[missing-attribute]
       pickle_paths = self._get_pickle_paths(all_predictions.ndim)
-      predictions = all_predictions[:].astype(np.float64)
-      labels = all_labels.astype(int).astype(np.int32)
+      predictions = all_predictions[:].astype(np.float64)  # pyrefly: ignore[missing-attribute]
+      labels = all_labels.astype(int).astype(np.int32)  # pyrefly: ignore[missing-attribute]
       ir = sklearn_ir.IsotonicRegression(out_of_bounds="clip")
       ir.fit(predictions, labels)
       with tf.io.gfile.GFile(pickle_paths, "wb") as handle:
         pickle.dump(ir, handle)
     else:
-      number_of_classes = all_predictions.shape[1]
+      number_of_classes = all_predictions.shape[1]  # pyrefly: ignore[missing-attribute]
       pickle_paths = self._get_pickle_paths(number_of_classes)
       for class_i in range(number_of_classes):
-        predictions = all_predictions[:, class_i].astype(np.float64)
-        labels = (all_labels == class_i).astype(int).astype(np.int32)
+        predictions = all_predictions[:, class_i].astype(np.float64)  # pyrefly: ignore[bad-index]
+        labels = (all_labels == class_i).astype(int).astype(np.int32)  # pyrefly: ignore[missing-attribute]
         ir = sklearn_ir.IsotonicRegression(out_of_bounds="clip")
         ir.fit(predictions, labels)
         with tf.io.gfile.GFile(pickle_paths[class_i],
@@ -2299,12 +2299,12 @@ class SemiParametricCalibrationError(metrics_base.FullBatchMetric):
       w = self.weight_function(probs)
       w /= np.mean(w)
       max_val = np.sum(w ** 2 * probs * (1-probs))
-      scale_lower, scale_upper = self.default_hyperparam_range
+      scale_lower, scale_upper = self.default_hyperparam_range  # pyrefly: ignore[not-iterable]
       hyperparam_range = np.linspace(scale_lower * max_val,
                                      scale_upper * max_val,
                                      self.hyperparam_attempts)
     if self.smoothing == "kernel":
-      scale_lower, scale_upper = self.default_hyperparam_range
+      scale_lower, scale_upper = self.default_hyperparam_range  # pyrefly: ignore[not-iterable]
       hyperparam_range = (np.linspace(
           scale_lower * probs.shape[0] + 1, scale_upper * probs.shape[0],
           self.hyperparam_attempts) / (np.max(probs) - np.min(probs)))**2
@@ -2312,7 +2312,7 @@ class SemiParametricCalibrationError(metrics_base.FullBatchMetric):
     return self._calculate_calibration_error(
         probs, labels,
         self._calculate_opt_cross_fit_calibration_function(
-            probs, labels, hyperparam_range))
+            probs, labels, hyperparam_range))  # pyrefly: ignore[unbound-name]
 
   def _calculate_calibration_function(self, train_probs, train_labels,
                                       test_probs, sigma=1):
@@ -2441,7 +2441,7 @@ class RootMeanSquaredCalibrationError(GeneralCalibrationError):
                dataset_info: Optional[datasets_base.DatasetInfo] = None,
                num_bins: int = 30,
                **kwargs):
-    super().__init__(dataset_info,
+    super().__init__(dataset_info,  # pyrefly: ignore[bad-argument-type]
                      threshold=0,
                      binning_scheme="adaptive",
                      max_prob=True,
@@ -2458,7 +2458,7 @@ class StaticCalibrationError(GeneralCalibrationError):
                dataset_info: Optional[datasets_base.DatasetInfo] = None,
                num_bins: int = 30,
                **kwargs):
-    super().__init__(dataset_info,
+    super().__init__(dataset_info,  # pyrefly: ignore[bad-argument-type]
                      threshold=0,
                      binning_scheme="even",
                      max_prob=False,
@@ -2475,7 +2475,7 @@ class AdaptiveCalibrationError(GeneralCalibrationError):
                dataset_info: Optional[datasets_base.DatasetInfo] = None,
                num_bins: int = 30,
                **kwargs):
-    super().__init__(dataset_info,
+    super().__init__(dataset_info,  # pyrefly: ignore[bad-argument-type]
                      threshold=0,
                      binning_scheme="adaptive",
                      max_prob=False,
@@ -2493,7 +2493,7 @@ class ThresholdedAdaptiveCalibrationError(GeneralCalibrationError):
                num_bins: int = 30,
                threshold: float = 0.01,
                **kwargs):
-    super().__init__(dataset_info,
+    super().__init__(dataset_info,  # pyrefly: ignore[bad-argument-type]
                      threshold=0,
                      binning_scheme="adaptive",
                      max_prob=False,
@@ -2510,7 +2510,7 @@ class MonotonicSweepCalibrationError(GeneralCalibrationError):
                dataset_info: Optional[datasets_base.DatasetInfo] = None,
                num_bins: int = 30,
                **kwargs):
-    super().__init__(dataset_info,
+    super().__init__(dataset_info,  # pyrefly: ignore[bad-argument-type]
 
                      threshold=0,
                      binning_scheme="adaptive",

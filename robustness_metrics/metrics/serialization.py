@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2025 The Robustness Metrics Authors.
+# Copyright 2026 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -85,7 +85,7 @@ class Serializer(metrics_base.Metric):
       return features
 
     path = tf.convert_to_tensor(self._path)
-    dataset = tf.data.TFRecordDataset(path).map(parse)
+    dataset = tf.data.TFRecordDataset(path).map(parse)  # pyrefly: ignore[bad-instantiation]
     dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
     options = tf.data.Options()
     options.experimental_distribute.auto_shard_policy = (

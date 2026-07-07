@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2025 The Robustness Metrics Authors.
+# Copyright 2026 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ from typing import Any, List, Dict, Text, Tuple
 
 def _get_name(expr):
   if isinstance(expr, ast.Call):
-    return expr.func.id
+    return expr.func.id  # pyrefly: ignore[missing-attribute]
   elif isinstance(expr, ast.Name):
     return expr.id
   else:
@@ -71,7 +71,7 @@ def parse_name_and_kwargs(code: str) -> Tuple[str, List[Any], Dict[str, Any]]:
     assert isinstance(expr, ast.Call)
     args = [ast.literal_eval(x) for x in expr.args]
     kwargs = {kv.arg: ast.literal_eval(kv.value) for kv in expr.keywords}
-    return name, args, kwargs
+    return name, args, kwargs  # pyrefly: ignore[bad-return]
 
 
 def standardize_spec(code: str) -> str:

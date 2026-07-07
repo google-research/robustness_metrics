@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2025 The Robustness Metrics Authors.
+# Copyright 2026 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ class Dataset(metaclass=abc.ABCMeta):
   """The abstract class representing a dataset."""
 
   @abc.abstractproperty
-  def info(self) -> DatasetInfo:
+  def info(self) -> DatasetInfo:  # pyrefly: ignore[bad-return]
     """The properties of the dataset."""
 
   @abc.abstractmethod

@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2025 The Robustness Metrics Authors.
+# Copyright 2026 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -177,7 +177,7 @@ def _get_data(df_main: pd.DataFrame, gce_prefix: str,
   df_plot = pd.concat([df_plot, df_zero])
 
   df_plot["model_size"] = df_plot.ModelName.map(display.MODEL_SIZE)
-  return df_plot.copy()
+  return df_plot.copy()  # pyrefly: ignore[bad-return]
 
 
 def plot_error_increase_vs_model_size(
@@ -205,7 +205,7 @@ def plot_error_increase_vs_model_size(
   rescaling_methods = ["temperature_scaling", "downstream_error"]
 
   df_plot = utils.average_imagenet_c_corruption_types(
-      df_plot, group_by=["ModelName", "Metric", "severity", "rescaling_method"])
+      df_plot, group_by=["ModelName", "Metric", "severity", "rescaling_method"])  # pyrefly: ignore[bad-argument-type]
 
   # Normalize per severity:
   rescaling_methods = df_plot.rescaling_method.unique()

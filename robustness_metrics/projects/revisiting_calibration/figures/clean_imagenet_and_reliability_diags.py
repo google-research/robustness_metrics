@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2025 The Robustness Metrics Authors.
+# Copyright 2026 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -160,7 +160,7 @@ def plot(df_main: pd.DataFrame,
       rel_ax.set_xlabel("Confidence\n(temp. scaled)")
 
   # Model family legend:
-  handles, labels = plotting.get_model_family_legend(big_ax, family_order)
+  handles, labels = plotting.get_model_family_legend(big_ax, family_order)  # pyrefly: ignore[unbound-name]
   legend = big_ax.legend(
       handles=handles, labels=labels, loc="upper right", frameon=True,
       labelspacing=0.25, handletextpad=0.1, borderpad=0.3, fontsize=4)
@@ -265,10 +265,10 @@ def _plot_confidence_and_reliability(conf_ax: mpl.axes.Axes,
   ax.set_title(model_name, fontsize=6)
   if plotting.col_num(ax) == first_col:
     ax.set_ylabel("Sample frac.", labelpad=2)
-    ax.set_yticks([0, 0.5, 1.0])
+    ax.set_yticks([0, 0.5, 1.0])  # pyrefly: ignore[not-callable]
   else:
-    ax.set_yticklabels([])
-  ax.set_xticks([])
+    ax.set_yticklabels([])  # pyrefly: ignore[not-callable]
+  ax.set_xticks([])  # pyrefly: ignore[not-callable]
   ax.set_xlim(0.0, 1.0)
   ax.set_ylim(0.0, 1.0)
   ax.grid(False, which="minor")
@@ -283,11 +283,11 @@ def _plot_confidence_and_reliability(conf_ax: mpl.axes.Axes,
   ax.set_aspect("equal")
   if plotting.col_num(ax) == first_col:
     ax.set_ylabel("Accuracy", labelpad=2)
-    ax.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    ax.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])  # pyrefly: ignore[not-callable]
   else:
-    ax.set_yticklabels([])
-  ax.set_xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
-  ax.set_xticklabels([0, "", "", "", "", 1.0])
+    ax.set_yticklabels([])  # pyrefly: ignore[not-callable]
+  ax.set_xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])  # pyrefly: ignore[not-callable]
+  ax.set_xticklabels([0, "", "", "", "", 1.0])  # pyrefly: ignore[not-callable]
   ax.grid(False, axis="x")
   ax.grid(False, axis="y", which="minor")
   ax.grid(True, axis="y", which="major")

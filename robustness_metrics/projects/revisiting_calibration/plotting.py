@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2025 The Robustness Metrics Authors.
+# Copyright 2026 The Robustness Metrics Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -157,7 +157,7 @@ def save_fig(fig: mpl.figure.Figure,
     filename = "{}_{}".format(time.strftime("%Y%m%d"), filename)
   savefig_kwargs.setdefault("bbox_inches", "tight")
   savefig_kwargs.setdefault("pad_inches", 0.02)
-  save_path = os.path.join(directory, filename)
+  save_path = os.path.join(directory, filename)  # pyrefly: ignore[no-matching-overload]
   fig.savefig(save_path, **savefig_kwargs)
 
 
@@ -190,7 +190,7 @@ def add_optimal_temperature_as_rescaling_method(
   df_tau = df_plot[df_plot.rescaling_method == "temperature_scaling"].copy()
   df_tau.rescaling_method = "tau"
   df_tau.MetricValue = df_tau.tau_on_eval_data
-  return pd.concat([df_plot, df_tau])
+  return pd.concat([df_plot, df_tau])  # pyrefly: ignore[bad-return]
 
 
 def row_num(ax: mpl.axes.Axes) -> int:
@@ -206,7 +206,7 @@ def col_num(ax: mpl.axes.Axes) -> int:
 def is_first_row(ax: mpl.axes.Axes) -> bool:
   """Returns if axis is in first row of a subplot."""
   try:
-    return ax.is_first_row()
+    return ax.is_first_row()  # pyrefly: ignore[missing-attribute]
   except AttributeError:
     # matplotlib 3.6
     return ax.get_subplotspec().is_first_row()
@@ -215,7 +215,7 @@ def is_first_row(ax: mpl.axes.Axes) -> bool:
 def is_first_col(ax: mpl.axes.Axes) -> bool:
   """Returns if axis is in first col of a subplot."""
   try:
-    return ax.is_first_col()
+    return ax.is_first_col()  # pyrefly: ignore[missing-attribute]
   except AttributeError:
     # matplotlib 3.6
     return ax.get_subplotspec().is_first_col()
@@ -224,7 +224,7 @@ def is_first_col(ax: mpl.axes.Axes) -> bool:
 def is_last_row(ax: mpl.axes.Axes) -> bool:
   """Returns if axis is in last row of a subplot."""
   try:
-    return ax.is_last_row()
+    return ax.is_last_row()  # pyrefly: ignore[missing-attribute]
   except AttributeError:
     # matplotlib 3.6
     return ax.get_subplotspec().is_last_row()
@@ -233,7 +233,7 @@ def is_last_row(ax: mpl.axes.Axes) -> bool:
 def is_last_col(ax: mpl.axes.Axes) -> bool:
   """Returns if axis is in last col of a subplot."""
   try:
-    return ax.is_last_col()
+    return ax.is_last_col()  # pyrefly: ignore[missing-attribute]
   except AttributeError:
     # matplotlib 3.6
     return ax.get_subplotspec().is_last_col()
