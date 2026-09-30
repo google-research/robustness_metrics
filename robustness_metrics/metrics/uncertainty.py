@@ -2495,7 +2495,7 @@ class ThresholdedAdaptiveCalibrationError(GeneralCalibrationError):
                threshold: float = 0.01,
                **kwargs):
     super().__init__(dataset_info,  # pyrefly: ignore[bad-argument-type]
-                     threshold=0,
+                     threshold=threshold,
                      binning_scheme="adaptive",
                      max_prob=False,
                      class_conditional=True,
