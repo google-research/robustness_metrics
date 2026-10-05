@@ -169,6 +169,6 @@ class RegressionPlotter(sns.regression._RegressionPlotter):  # pylint: disable=p
     if self.ci is None:
       return yhat, None
     beta_boots = sns_algos.bootstrap(
-        x, y, func=reg_func, n_boot=self.n_boot, units=self.units,  # pytype: disable=attribute-error
+        x, y, func=reg_func, n_boot=self.n_boot, units=self.units,  # pyrefly: ignore[missing-attribute]
         seed=self.seed).T
     return beta_plot, beta_boots

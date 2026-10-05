@@ -85,7 +85,7 @@ class Serializer(metrics_base.Metric):
       return features
 
     path = tf.convert_to_tensor(self._path)
-    dataset = tf.data.TFRecordDataset(path).map(parse)  # pyrefly: ignore[bad-instantiation]
+    dataset = tf.data.TFRecordDataset(path).map(parse)
     dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
     options = tf.data.Options()
     options.experimental_distribute.auto_shard_policy = (

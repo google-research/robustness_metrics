@@ -59,7 +59,7 @@ def parse_name_and_kwargs(code: str) -> Tuple[str, List[Any], Dict[str, Any]]:
     ValueError: If the code is malformed.
   """
   try:
-    expr = ast.parse(code, mode="eval").body  # pytype: disable=attribute-error
+    expr = ast.parse(code, mode="eval").body
   except SyntaxError:
     raise ValueError(f"{code!r} is not a valid Python code.")
   name = _get_name(expr)

@@ -225,7 +225,7 @@ def _get_data(
   df_cond1["varying_key"] = "steps"
   df_cond2 = df_plot[df_plot["steps"] == 1120000].copy()
   df_cond2["varying_key"] = "size"
-  return pd.concat([df_cond1, df_cond2])  # pyrefly: ignore[bad-return]
+  return pd.concat([df_cond1, df_cond2])
 
 
 def subplot_fn(data, x, y, **kwargs):

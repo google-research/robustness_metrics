@@ -190,7 +190,7 @@ def add_optimal_temperature_as_rescaling_method(
   df_tau = df_plot[df_plot.rescaling_method == "temperature_scaling"].copy()
   df_tau.rescaling_method = "tau"
   df_tau.MetricValue = df_tau.tau_on_eval_data
-  return pd.concat([df_plot, df_tau])  # pyrefly: ignore[bad-return]
+  return pd.concat([df_plot, df_tau])
 
 
 def row_num(ax: mpl.axes.Axes) -> int:

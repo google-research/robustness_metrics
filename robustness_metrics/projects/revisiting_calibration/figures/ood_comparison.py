@@ -163,7 +163,7 @@ def plot(df_main: pd.DataFrame,
       ax.set_xticklabels("")
 
   if add_metric_description:
-    plotting.add_metric_description_title(df_plot, g.fig, y=1.05)  # pyrefly: ignore[bad-argument-type]
+    plotting.add_metric_description_title(df_plot, g.fig, y=1.05)
 
   plotting.apply_to_fig_text(g.fig, display.prettify)
   g.fig.tight_layout(pad=0)

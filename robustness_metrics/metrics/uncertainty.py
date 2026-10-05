@@ -774,7 +774,7 @@ class _KerasCalibrationAUCMetric(tf.keras.metrics.AUC):
     super().__init__(curve=curve, multi_label=False, **kwargs)
     self.correct_pred_as_pos_label = correct_pred_as_pos_label
 
-  def update_state(self, y_true: Sequence[float], y_pred: Sequence[float],  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
+  def update_state(self, y_true: Sequence[float], y_pred: Sequence[float],  # pyrefly: ignore[bad-override]
                    confidence: Sequence[float], **kwargs: Mapping[str,
                                                                   Any]) -> None:
     """Updates confidence versus accuracy AUC statistics.
@@ -800,7 +800,7 @@ class _KerasCalibrationAUCMetric(tf.keras.metrics.AUC):
       # This results in label imbalance in the calibration AUC computation, and
       # can lead to overly optimistic results.
       scores = 1. - scores
-      labels = 1. - labels  # pyrefly: ignore[unsupported-operation]
+      labels = 1. - labels
 
     # Updates confidence v.s. accuracy AUC statistic.
     super().update_state(y_true=labels, y_pred=scores, **kwargs)
@@ -1189,7 +1189,7 @@ class CalibrationAUC(metrics_base.KerasMetric):
       self._metric.update_state(
           label, predictions, confidence=confidence)
 
-  def add_predictions(self, model_predictions: types.ModelPredictions,  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
+  def add_predictions(self, model_predictions: types.ModelPredictions,  # pyrefly: ignore[bad-override]
                       **metadata) -> None:
     try:
       element_id = int(metadata["element_id"])
@@ -1448,7 +1448,7 @@ def _get_bin_edges(bin_assign, probs):
       if ci == 0:
         bin_edges.append(curr_bin_min)
       else:
-        bin_edges.append(curr_bin_min * .5 + previous_max * .5)  # pytype: disable=name-error
+        bin_edges.append(curr_bin_min * .5 + previous_max * .5)  # pyrefly: ignore[unbound-name]
       previous_max = curr_bin_max
   if curr_bin_max is not None:
     bin_edges.append(curr_bin_max)
@@ -2027,7 +2027,7 @@ class IsotonicRegression(metrics_base.FullBatchMetric):
     labels = np.asarray(self._labels)
     predictions = np.asarray(self._predictions)
     assert len(labels) == len(predictions), "Labels/predictions don't match."
-    self.fit(predictions, labels)  # pytype: disable=wrong-arg-types  # trace-all-classes
+    self.fit(predictions, labels)  # pyrefly: ignore[bad-argument-type]
     return {"dummy": 0.0}
 
 

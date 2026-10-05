@@ -44,7 +44,7 @@ def load_module_from_path(model_path: str) -> pytypes.ModuleType:
   """
   module_spec = importlib.util.spec_from_file_location("model", model_path)
   module = importlib.util.module_from_spec(module_spec)  # pyrefly: ignore[bad-argument-type]
-  module_spec.loader.exec_module(module)  # pytype: disable=attribute-error
+  module_spec.loader.exec_module(module)  # pyrefly: ignore[missing-attribute]
   return module
 
 
@@ -168,9 +168,9 @@ def compute_predictions(
     predictions = materialize(strategy,
                               strategy.run(model, args=(features_model,)))
     time_end = time.time()
-    time_delta_per_example = (time_end - time_start) / predictions.shape[0]  # pytype: disable=attribute-error
+    time_delta_per_example = (time_end - time_start) / predictions.shape[0]
     metadatas = materialize(strategy, features["metadata"])
-    for i in range(predictions.shape[0]):  # pytype: disable=attribute-error
+    for i in range(predictions.shape[0]):
       model_predictions = types.ModelPredictions(
           predictions=[predictions[i]],
           time_in_s=time_delta_per_example)
@@ -275,7 +275,7 @@ def compute_predictions_jax(
 
     flatten = lambda array: array.reshape((-1,) + array.shape[2:])
     predictions, masks = jax.tree.map(flatten, infer(features))
-    with jax.enable_x64():  # pytype: disable=module-attr
+    with jax.enable_x64():
       metadatas = jax.tree.map(flatten, gather_metadata(features))[0]
 
     time_end = time.time()
@@ -286,7 +286,7 @@ def compute_predictions_jax(
         if masks[i]:
           predictions_i = types.ModelPredictions(
               predictions=[predictions[i]], time_in_s=time_delta_per_example)
-          with jax.enable_x64():  # pytype: disable=module-attr
+          with jax.enable_x64():
             metadata_i = _slice_dictionary(metadatas, i)
             is_leaf_fn = lambda x: isinstance(x, dict) and "__packed" in x
             metadata_i_unpadded = jax.tree.map(
