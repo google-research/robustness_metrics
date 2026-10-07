@@ -1009,6 +1009,89 @@ class GeneralCalibrationErrorTest(parameterized.TestCase, tf.test.TestCase):
     self.assertListEqual(bin_assign.tolist(), [0, 0, 1, 1, 1])
 
 
+_TACE_PROBS = np.array([
+    [.99, .005, .005],
+    [.1, .8, .1],
+    [.2, .2, .6],
+    [.05, .1, .85],
+])
+_TACE_LABELS = np.array([1, 1, 0, 2])
+
+
+def _one_bin_tace_error(threshold):
+  # With one bin per class, calibration is the absolute difference of
+  # empirical accuracy and mean confidence among the retained probabilities.
+  errors = []
+  for class_id in range(_TACE_PROBS.shape[1]):
+    keep = _TACE_PROBS[:, class_id] > threshold
+    if np.any(keep):
+      errors.append(abs(np.mean(_TACE_LABELS[keep] == class_id)
+                        - np.mean(_TACE_PROBS[keep, class_id])))
+    else:
+      errors.append(0.)
+  return np.mean(errors)
+
+
+class ThresholdedAdaptiveCalibrationErrorTest(parameterized.TestCase):
+
+  @parameterized.product(
+      threshold=[0., .01, .1, .5, .99, 1.], registry=[False, True])
+  def test_one_bin_result_matches_filtered_class_means(
+      self, threshold, registry):
+    if registry:
+      metric = rm.metrics.get(f'tace(num_bins=1,threshold={threshold})')
+    else:
+      metric = rm.metrics.ThresholdedAdaptiveCalibrationError(
+          num_bins=1, threshold=threshold)
+    metric.add_batch(_TACE_PROBS, label=_TACE_LABELS)
+    self.assertAlmostEqual(
+        metric.result()['gce'], _one_bin_tace_error(threshold)
+    )
+
+  @parameterized.parameters('tace', 'tace(threshold=0.01)')
+  def test_default_threshold_differs_from_ace(self, spec):
+    metric = rm.metrics.get(spec)
+    equivalent = rm.metrics.GeneralCalibrationError(
+        None, binning_scheme='adaptive', max_prob=False, class_conditional=True,
+        norm='l1', num_bins=30, threshold=.01)
+    ace = rm.metrics.AdaptiveCalibrationError()
+    for item in [metric, equivalent, ace]:
+      item.add_batch(_TACE_PROBS, label=_TACE_LABELS)
+    self.assertAlmostEqual(metric.result()['gce'], equivalent.result()['gce'])
+    self.assertNotAlmostEqual(metric.result()['gce'], ace.result()['gce'])
+
+  @parameterized.parameters(1, 2, 7, 30)
+  def test_explicit_zero_matches_ace(self, num_bins):
+    metric = rm.metrics.ThresholdedAdaptiveCalibrationError(
+        num_bins=num_bins, threshold=0.)
+    ace = rm.metrics.AdaptiveCalibrationError(num_bins=num_bins)
+    for item in [metric, ace]:
+      item.add_batch(_TACE_PROBS, label=_TACE_LABELS)
+    self.assertAlmostEqual(metric.result()['gce'], ace.result()['gce'])
+
+  @parameterized.parameters(1, 2, 7, 30)
+  def test_threshold_and_bin_count_match_general_calibration(self, num_bins):
+    metric = rm.metrics.ThresholdedAdaptiveCalibrationError(
+        num_bins=num_bins, threshold=.1)
+    equivalent = rm.metrics.GeneralCalibrationError(
+        None, binning_scheme='adaptive', max_prob=False, class_conditional=True,
+        norm='l1', num_bins=num_bins, threshold=.1)
+    for item in [metric, equivalent]:
+      item.add_batch(_TACE_PROBS, label=_TACE_LABELS)
+    self.assertAlmostEqual(metric.result()['gce'], equivalent.result()['gce'])
+
+  def test_individual_predictions_match_batch_result(self):
+    metric = rm.metrics.ThresholdedAdaptiveCalibrationError(
+        num_bins=1, threshold=.1)
+    for index, (probabilities, label) in enumerate(
+        zip(_TACE_PROBS, _TACE_LABELS)
+    ):
+      metric.add_predictions(
+          rm.common.types.ModelPredictions(predictions=[probabilities]),
+          {'label': label, 'element_id': index})
+    self.assertAlmostEqual(metric.result()['gce'], _one_bin_tace_error(.1))
+
+
 class OracleCollaborativeAccuracyTest(parameterized.TestCase, tf.test.TestCase):
 
   def setUp(self):
