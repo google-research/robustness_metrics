@@ -113,6 +113,7 @@ class _KerasECEMetric(tf.keras.metrics.Metric):
                    labels,
                    probabilities,
                    custom_binning_score=None,
+                   sample_weight=None,
                    **kwargs):
     """Updates this metric.
 
@@ -128,6 +129,9 @@ class _KerasECEMetric(tf.keras.metrics.Metric):
         of probabilities used for binning predictions. If not set, the default
         is to bin by predicted probability. The elements of custom_binning_score
         are expected to all be in [0, 1].
+      sample_weight: Optional weighting of each example. Defaults to 1. Can
+        be a `Tensor` whose rank is either 0, or the same rank as `labels`,
+        and must be broadcastable to `labels`.
       **kwargs: Other potential keywords, which will be ignored by this method.
     """
     del kwargs  # unused
@@ -143,6 +147,15 @@ class _KerasECEMetric(tf.keras.metrics.Metric):
     if tf.rank(probabilities) != 2 or (tf.shape(probabilities)[0] !=
                                        tf.shape(labels)[0]):
       probabilities = tf.reshape(probabilities, [tf.shape(labels)[0], -1])
+
+    # use sample weight if provided
+    if sample_weight is not None:
+      if tf.rank(sample_weight) != 1:
+        sample_weight = tf.reshape(sample_weight, [-1])
+
+      probabilities = tf.boolean_mask(probabilities, sample_weight)
+      labels = tf.boolean_mask(labels, sample_weight)
+
     # Extend any probabilities of shape [N, 1] to shape [N, 2].
     # NOTE: XLA does not allow for different shapes in the branches of a
     # conditional statement. Therefore, explicit indexing is used.
